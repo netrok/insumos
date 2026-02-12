@@ -5,27 +5,20 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('almacenes', function (Blueprint $table) {
             $table->id();
-            $table->string('nombre')->unique();   // Ej: Almacén Central, Sucursal X
-            $table->string('codigo')->unique();   // Ej: ALM-CEN, SUC-01
-            $table->string('ubicacion')->nullable();
+            $table->string('nombre', 120)->unique();
+            $table->string('codigo', 30)->unique();
+            $table->string('ubicacion', 255)->nullable();
             $table->boolean('activo')->default(true);
             $table->timestamps();
         });
     }
 
-
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('almacens');
+        Schema::dropIfExists('almacenes');
     }
 };

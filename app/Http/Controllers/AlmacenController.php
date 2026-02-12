@@ -7,13 +7,21 @@ use Illuminate\Http\Request;
 
 class AlmacenController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = Almacen::query()
-            ->orderBy('nombre')
-            ->paginate(10);
+        $q = $request->get('q');
 
-        return view('almacenes.index', compact('items'));
+        $items = Almacen::query()
+            ->when($q, function ($query) use ($q) {
+                $query->where('nombre', 'ILIKE', "%{$q}%")
+                      ->orWhere('codigo', 'ILIKE', "%{$q}%")
+                      ->orWhere('ubicacion', 'ILIKE', "%{$q}%");
+            })
+            ->orderBy('nombre')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('almacenes.index', compact('items', 'q'));
     }
 
     public function create()
@@ -42,16 +50,12 @@ class AlmacenController extends Controller
 
     public function show(Almacen $almacen)
     {
-        $item = $almacen;
-
-        return view('almacenes.show', compact('item'));
+        return view('almacenes.show', compact('almacen'));
     }
 
     public function edit(Almacen $almacen)
     {
-        $item = $almacen;
-
-        return view('almacenes.edit', compact('item'));
+        return view('almacenes.edit', compact('almacen'));
     }
 
     public function update(Request $request, Almacen $almacen)
