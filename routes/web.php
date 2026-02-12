@@ -2,6 +2,39 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\UnidadController;
+use App\Http\Controllers\AlmacenController;
+use App\Http\Controllers\InsumoController;
+
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    // Perfil
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Catálogos
+    Route::resource('categorias', CategoriaController::class)
+        ->parameters(['categorias' => 'categoria']);
+
+    Route::resource('unidades', UnidadController::class)
+        ->parameters(['unidades' => 'unidad']);
+
+    Route::resource('almacenes', AlmacenController::class)
+        ->parameters(['almacenes' => 'almacen']);
+
+    // Insumos
+    Route::resource('insumos', InsumoController::class)
+        ->parameters(['insumos' => 'insumo']);
+});
+
+require __DIR__.'/auth.php';

@@ -22,3 +22,15 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Node / Vite
+node_modules/
+public/build/
+
+# Env
+.env
+.env.*
+
+# OS
+.DS_Store
+
