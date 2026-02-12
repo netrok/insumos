@@ -7,16 +7,15 @@ use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\UnidadController;
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\InsumoController;
+use App\Http\Controllers\EntradaController;
+use App\Http\Controllers\ProveedorController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn () => view('welcome'));
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn () => view('dashboard'))
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
-// Rutas protegidas
 Route::middleware(['auth'])->group(function () {
 
     // Perfil
@@ -25,23 +24,21 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Catálogos
-    Route::resource('categorias', CategoriaController::class)
-        ->parameters(['categorias' => 'categoria']);
-
-    Route::resource('unidades', UnidadController::class)
-        ->parameters(['unidades' => 'unidad']);
-
-    Route::resource('almacenes', AlmacenController::class)
-        ->parameters(['almacenes' => 'almacen']);
+    Route::resource('categorias', CategoriaController::class)->parameters(['categorias' => 'categoria']);
+    Route::resource('unidades', UnidadController::class)->parameters(['unidades' => 'unidad']);
+    Route::resource('almacenes', AlmacenController::class)->parameters(['almacenes' => 'almacen']);
 
     // Insumos
-    Route::resource('insumos', InsumoController::class)
-        ->parameters(['insumos' => 'insumo']);
+    Route::resource('insumos', InsumoController::class)->parameters(['insumos' => 'insumo']);
 
-    // (Temporal) módulos pendientes para el sidebar del layout
-    Route::view('/entradas', 'entradas.index')->name('entradas.index');
+    // Proveedores
+    Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
+
+    // Entradas
+    Route::resource('entradas', EntradaController::class)->parameters(['entradas' => 'entrada']);
+
+    // (Temporal) módulos pendientes
     Route::view('/salidas', 'salidas.index')->name('salidas.index');
-    Route::view('/proveedores', 'proveedores.index')->name('proveedores.index');
     Route::view('/reportes', 'reportes.index')->name('reportes.index');
     Route::view('/admin', 'admin.index')->name('admin.index');
 });

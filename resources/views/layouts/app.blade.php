@@ -87,7 +87,7 @@
                 </div>
             @endif
 
-            {{-- Page header (va aquí, no fuera del HTML) --}}
+            {{-- Page header --}}
             @if (trim($__env->yieldContent('page_title')))
                 <div class="mb-5">
                     <div class="flex items-start justify-between gap-4">
@@ -101,9 +101,12 @@
                             @endif
                         </div>
 
-                        <div class="shrink-0">
-                            @yield('page_actions')
-                        </div>
+                        {{-- ✅ Renderiza HTML real en page_actions --}}
+                        @hasSection('page_actions')
+                            <div class="shrink-0">
+                                {!! trim($__env->yieldContent('page_actions')) !!}
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -159,8 +162,15 @@
   const sidebar = document.getElementById('mobileSidebar');
   const backdrop = document.getElementById('mobileBackdrop');
 
-  const open = () => { sidebar.classList.remove('-translate-x-full'); backdrop.classList.remove('hidden'); };
-  const hide = () => { sidebar.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); };
+  const open = () => {
+    sidebar.classList.remove('-translate-x-full');
+    backdrop.classList.remove('hidden');
+  };
+
+  const hide = () => {
+    sidebar.classList.add('-translate-x-full');
+    backdrop.classList.add('hidden');
+  };
 
   btn?.addEventListener('click', open);
   close?.addEventListener('click', hide);

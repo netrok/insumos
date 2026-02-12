@@ -9,18 +9,22 @@ class UnidadController extends Controller
 {
     public function index(Request $request)
     {
-        $q = $request->get('q');
+        $q = trim((string) $request->get('q', ''));
+        $activa = $request->get('activa'); // '1' | '0' | null
 
         $items = Unidad::query()
-            ->when($q, function ($query) use ($q) {
-                $query->where('nombre', 'ILIKE', "%{$q}%")
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('nombre', 'ILIKE', "%{$q}%")
                       ->orWhere('clave', 'ILIKE', "%{$q}%");
+                });
             })
+            ->when($activa !== null && $activa !== '', fn ($query) => $query->where('activa', $activa === '1'))
             ->orderBy('nombre')
             ->paginate(10)
             ->withQueryString();
 
-        return view('unidades.index', compact('items', 'q'));
+        return view('unidades.index', compact('items', 'q', 'activa'));
     }
 
     public function create()
@@ -36,6 +40,7 @@ class UnidadController extends Controller
             'activa' => ['nullable', 'boolean'],
         ]);
 
+        $data['nombre'] = strtoupper(trim($data['nombre']));
         $data['clave']  = strtoupper(trim($data['clave']));
         $data['activa'] = $request->boolean('activa');
 
@@ -43,7 +48,7 @@ class UnidadController extends Controller
 
         return redirect()
             ->route('unidades.index')
-            ->with('success', 'Unidad creada.');
+            ->with('ok', 'Unidad creada.');
     }
 
     public function show(Unidad $unidad)
@@ -64,6 +69,7 @@ class UnidadController extends Controller
             'activa' => ['nullable', 'boolean'],
         ]);
 
+        $data['nombre'] = strtoupper(trim($data['nombre']));
         $data['clave']  = strtoupper(trim($data['clave']));
         $data['activa'] = $request->boolean('activa');
 
@@ -71,7 +77,7 @@ class UnidadController extends Controller
 
         return redirect()
             ->route('unidades.index')
-            ->with('success', 'Unidad actualizada.');
+            ->with('ok', 'Unidad actualizada.');
     }
 
     public function destroy(Unidad $unidad)
@@ -80,6 +86,6 @@ class UnidadController extends Controller
 
         return redirect()
             ->route('unidades.index')
-            ->with('success', 'Unidad eliminada.');
+            ->with('ok', 'Unidad eliminada.');
     }
 }

@@ -13,9 +13,11 @@ class AlmacenController extends Controller
 
         $items = Almacen::query()
             ->when($q, function ($query) use ($q) {
-                $query->where('nombre', 'ILIKE', "%{$q}%")
+                $query->where(function ($w) use ($q) {
+                    $w->where('nombre', 'ILIKE', "%{$q}%")
                       ->orWhere('codigo', 'ILIKE', "%{$q}%")
                       ->orWhere('ubicacion', 'ILIKE', "%{$q}%");
+                });
             })
             ->orderBy('nombre')
             ->paginate(10)
@@ -32,10 +34,10 @@ class AlmacenController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:120', 'unique:almacenes,nombre'],
-            'codigo' => ['required', 'string', 'max:30',  'unique:almacenes,codigo'],
+            'nombre'    => ['required', 'string', 'max:120', 'unique:almacenes,nombre'],
+            'codigo'    => ['required', 'string', 'max:30',  'unique:almacenes,codigo'],
             'ubicacion' => ['nullable', 'string', 'max:255'],
-            'activo' => ['nullable', 'boolean'],
+            'activo'    => ['nullable', 'boolean'],
         ]);
 
         $data['codigo'] = strtoupper(trim($data['codigo']));
@@ -61,10 +63,10 @@ class AlmacenController extends Controller
     public function update(Request $request, Almacen $almacen)
     {
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:120', 'unique:almacenes,nombre,' . $almacen->id],
-            'codigo' => ['required', 'string', 'max:30',  'unique:almacenes,codigo,' . $almacen->id],
+            'nombre'    => ['required', 'string', 'max:120', 'unique:almacenes,nombre,' . $almacen->id],
+            'codigo'    => ['required', 'string', 'max:30',  'unique:almacenes,codigo,' . $almacen->id],
             'ubicacion' => ['nullable', 'string', 'max:255'],
-            'activo' => ['nullable', 'boolean'],
+            'activo'    => ['nullable', 'boolean'],
         ]);
 
         $data['codigo'] = strtoupper(trim($data['codigo']));

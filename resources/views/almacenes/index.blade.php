@@ -4,117 +4,101 @@
 @section('header', 'Catálogos')
 
 @section('page_title', 'Almacenes')
-@section('page_subtitle', 'Administra los almacenes (central y sucursales)')
+@section('page_subtitle', 'Administra el catálogo de almacenes')
 
 @section('page_actions')
-    <a href="{{ route('almacenes.create') }}"
-       class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:opacity-90">
-        <span>＋</span> Nuevo
-    </a>
+  <x-btn href="{{ route('almacenes.create') }}">
+    <x-icon name="plus" class="h-4 w-4" />
+    Nuevo almacén
+  </x-btn>
 @endsection
 
 @section('content')
-<div class="bg-white border rounded-2xl overflow-hidden">
+  <x-card>
 
-    <div class="p-4 border-b">
-        <form method="GET" class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div class="flex-1">
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ $q ?? '' }}"
-                    placeholder="Buscar por nombre, código o ubicación…"
-                    class="w-full sm:max-w-md rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"
-                />
-            </div>
-
-            <div class="flex gap-2">
-                <button class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                    Buscar
-                </button>
-
-                @if(!empty($q))
-                    <a href="{{ route('almacenes.index') }}"
-                       class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                        Limpiar
-                    </a>
-                @endif
-            </div>
-        </form>
-    </div>
+    <x-toolbar
+      action="{{ route('almacenes.index') }}"
+      qName="q"
+      qValue="{{ $q ?? '' }}"
+      placeholder="Buscar por nombre, código, ubicación…"
+      :showClear="!empty($q)"
+      clearHref="{{ route('almacenes.index') }}"
+    />
 
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left font-medium px-4 py-3">Nombre</th>
-                    <th class="text-left font-medium px-4 py-3">Código</th>
-                    <th class="text-left font-medium px-4 py-3">Ubicación</th>
-                    <th class="text-left font-medium px-4 py-3">Activo</th>
-                    <th class="text-right font-medium px-4 py-3 w-56">Acciones</th>
-                </tr>
-            </thead>
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="text-left font-medium px-4 py-3">Nombre</th>
+            <th class="text-left font-medium px-4 py-3">Código</th>
+            <th class="text-left font-medium px-4 py-3">Ubicación</th>
+            <th class="text-left font-medium px-4 py-3">Activo</th>
+            <th class="text-right font-medium px-4 py-3 w-56">Acciones</th>
+          </tr>
+        </thead>
 
-            <tbody class="divide-y">
-                @forelse($items as $it)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <div class="font-medium">
-                                <a href="{{ route('almacenes.show', $it) }}" class="hover:underline">
-                                    {{ $it->nombre }}
-                                </a>
-                            </div>
-                        </td>
+        <tbody class="divide-y">
+          @forelse($items as $a)
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium">
+                <a href="{{ route('almacenes.show', $a) }}" class="hover:underline">
+                  {{ $a->nombre ?? '—' }}
+                </a>
+              </td>
 
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs">
-                                {{ $it->codigo }}
-                            </span>
-                        </td>
+              <td class="px-4 py-3">
+                {{ $a->codigo ?? '—' }}
+              </td>
 
-                        <td class="px-4 py-3 text-gray-700">
-                            {{ $it->ubicacion ?: '—' }}
-                        </td>
+              <td class="px-4 py-3">
+                {{ $a->ubicacion ?? '—' }}
+              </td>
 
-                        <td class="px-4 py-3">
-                            @if($it->activo)
-                                <span class="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-700 text-xs">Sí</span>
-                            @else
-                                <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs">No</span>
-                            @endif
-                        </td>
+              <td class="px-4 py-3">
+                @if($a->activo)
+                  <x-badge variant="success">Sí</x-badge>
+                @else
+                  <x-badge variant="muted">No</x-badge>
+                @endif
+              </td>
 
-                        <td class="px-4 py-3">
-                            <div class="flex justify-end gap-2">
-                                <a href="{{ route('almacenes.edit', $it) }}"
-                                   class="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">
-                                    Editar
-                                </a>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-2">
+                  <x-btn variant="ghost" iconOnly href="{{ route('almacenes.show', $a) }}" title="Ver">
+                    <x-icon name="eye" class="h-4 w-4" />
+                  </x-btn>
 
-                                <form method="POST" action="{{ route('almacenes.destroy', $it) }}"
-                                      onsubmit="return confirm('¿Eliminar este almacén?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm hover:opacity-90">
-                                        Eliminar
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="5" class="px-4 py-10 text-center text-gray-500">
-                            No hay almacenes{{ !empty($q) ? ' que coincidan con tu búsqueda' : '' }}.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                  <x-btn variant="outline" iconOnly href="{{ route('almacenes.edit', $a) }}" title="Editar">
+                    <x-icon name="edit" class="h-4 w-4" />
+                  </x-btn>
+
+                  <form method="POST" action="{{ route('almacenes.destroy', $a) }}"
+                        onsubmit="return confirm('¿Eliminar almacén? Esta acción no se puede deshacer.');"
+                        class="inline">
+                    @csrf
+                    @method('DELETE')
+
+                    <x-btn variant="danger" iconOnly type="submit" title="Eliminar">
+                      <x-icon name="trash" class="h-4 w-4" />
+                    </x-btn>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="5" class="px-4 py-10 text-center text-gray-500">
+                No hay almacenes{{ !empty($q) ? ' que coincidan con tu búsqueda' : '' }}.
+              </td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
     </div>
 
     <div class="p-4 border-t">
-        {{ $items->links() }}
+      {{ $items->links() }}
     </div>
-</div>
+
+  </x-card>
 @endsection

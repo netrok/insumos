@@ -4,119 +4,137 @@
 @section('header', 'Catálogos')
 
 @section('page_title', 'Unidades')
-@section('page_subtitle', 'Administra el catálogo de unidades')
+@section('page_subtitle', 'Administra el catálogo de unidades de medida')
 
 @section('page_actions')
-    <a href="{{ route('unidades.create') }}"
-       class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:opacity-90">
-        <span>＋</span> Nueva
-    </a>
+  <x-btn href="{{ route('unidades.create') }}">
+    <x-icon name="plus" class="h-4 w-4" />
+    Nueva unidad
+  </x-btn>
 @endsection
 
 @section('content')
-<div class="bg-white border rounded-2xl overflow-hidden">
+  <x-card>
 
     {{-- Toolbar --}}
-    <div class="p-4 border-b">
-        <form method="GET" class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div class="flex-1">
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ $q ?? '' }}"
-                    placeholder="Buscar por nombre o clave…"
-                    class="w-full sm:max-w-md rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"
-                />
-            </div>
+    <div class="p-4 border-b bg-white">
+      <form method="GET" action="{{ route('unidades.index') }}"
+            class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
 
-            <div class="flex gap-2">
-                <button class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                    Buscar
-                </button>
+        <div class="sm:col-span-7">
+          <label class="text-xs font-semibold text-gray-600">Búsqueda</label>
+          <div class="relative mt-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <x-icon name="search" class="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              name="q"
+              value="{{ $q ?? '' }}"
+              placeholder="Buscar por nombre o clave…"
+              class="w-full pl-9 rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            />
+          </div>
+        </div>
 
-                @if(!empty($q))
-                    <a href="{{ route('unidades.index') }}"
-                       class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50">
-                        Limpiar
-                    </a>
-                @endif
-            </div>
-        </form>
+        <div class="sm:col-span-3">
+          <label class="text-xs font-semibold text-gray-600">Estatus</label>
+          <select name="activa"
+                  class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
+            <option value="">Todas</option>
+            <option value="1" @selected(($activa ?? '') === '1')>Activas</option>
+            <option value="0" @selected(($activa ?? '') === '0')>Inactivas</option>
+          </select>
+        </div>
+
+        <div class="sm:col-span-2 flex gap-2">
+          <x-btn variant="soft" type="submit" class="w-full">
+            <x-icon name="filter" class="h-4 w-4" />
+            Filtrar
+          </x-btn>
+
+          @if(filled($q ?? null) || (($activa ?? '') !== ''))
+            <x-btn variant="secondary" href="{{ route('unidades.index') }}" class="w-full">
+              <x-icon name="x" class="h-4 w-4" />
+              Limpiar
+            </x-btn>
+          @endif
+        </div>
+
+      </form>
     </div>
 
     {{-- Table --}}
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="text-left font-medium px-4 py-3">Nombre</th>
-                    <th class="text-left font-medium px-4 py-3">Clave</th>
-                    <th class="text-left font-medium px-4 py-3">Activa</th>
-                    <th class="text-right font-medium px-4 py-3 w-56">Acciones</th>
-                </tr>
-            </thead>
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="text-left font-medium px-4 py-3">Nombre</th>
+            <th class="text-left font-medium px-4 py-3">Clave</th>
+            <th class="text-left font-medium px-4 py-3">Activa</th>
+            <th class="text-right font-medium px-4 py-3 w-56">Acciones</th>
+          </tr>
+        </thead>
 
-            <tbody class="divide-y">
-                @forelse($items as $it)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <div class="font-medium">
-                                <a href="{{ route('unidades.show', $it) }}" class="hover:underline">
-                                    {{ $it->nombre }}
-                                </a>
-                            </div>
-                        </td>
+        <tbody class="divide-y">
+          @forelse($items as $it)
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium">
+                <a href="{{ route('unidades.show', $it) }}" class="hover:underline">
+                  {{ $it->nombre }}
+                </a>
+              </td>
 
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs">
-                                {{ $it->clave }}
-                            </span>
-                        </td>
+              <td class="px-4 py-3">
+                <x-badge variant="gold">{{ $it->clave ?? '—' }}</x-badge>
+              </td>
 
-                        <td class="px-4 py-3">
-                            @if($it->activa)
-                                <span class="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-700 text-xs">
-                                    Sí
-                                </span>
-                            @else
-                                <span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs">
-                                    No
-                                </span>
-                            @endif
-                        </td>
+              <td class="px-4 py-3">
+                @if($it->activa)
+                  <x-badge variant="success">Sí</x-badge>
+                @else
+                  <x-badge variant="muted">No</x-badge>
+                @endif
+              </td>
 
-                        <td class="px-4 py-3">
-                            <div class="flex justify-end gap-2">
-                                <a href="{{ route('unidades.edit', $it) }}"
-                                   class="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">
-                                    Editar
-                                </a>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-2">
+                  <x-btn variant="ghost" iconOnly href="{{ route('unidades.show', $it) }}" title="Ver">
+                    <x-icon name="eye" class="h-4 w-4" />
+                  </x-btn>
 
-                                <form method="POST" action="{{ route('unidades.destroy', $it) }}"
-                                      onsubmit="return confirm('¿Eliminar esta unidad?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm hover:opacity-90">
-                                        Eliminar
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4" class="px-4 py-10 text-center text-gray-500">
-                            No hay unidades{{ !empty($q) ? ' que coincidan con tu búsqueda' : '' }}.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                  <x-btn variant="outline" iconOnly href="{{ route('unidades.edit', $it) }}" title="Editar">
+                    <x-icon name="edit" class="h-4 w-4" />
+                  </x-btn>
+
+                  <form method="POST" action="{{ route('unidades.destroy', $it) }}"
+                        onsubmit="return confirm('¿Eliminar unidad? Esta acción no se puede deshacer.');"
+                        class="inline">
+                    @csrf
+                    @method('DELETE')
+
+                    <x-btn variant="danger" iconOnly type="submit" title="Eliminar">
+                      <x-icon name="trash" class="h-4 w-4" />
+                    </x-btn>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="4" class="px-4 py-10 text-center text-gray-500">
+                No hay unidades{{ filled($q ?? '') ? ' que coincidan con tu búsqueda' : '' }}.
+              </td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
     </div>
 
     {{-- Pagination --}}
     <div class="p-4 border-t">
-        {{ $items->links() }}
+      {{ $items->links() }}
     </div>
-</div>
+
+  </x-card>
 @endsection

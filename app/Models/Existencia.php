@@ -9,17 +9,18 @@ class Existencia extends Model
 {
     use HasFactory;
 
+    protected $table = 'existencias';
+
     protected $fillable = [
-        'insumo_id',
         'almacen_id',
-        'cantidad',
+        'insumo_id',
+        'stock',
     ];
 
     protected $casts = [
-        'cantidad' => 'decimal:2', // cámbialo a integer si tu columna es integer
+        'stock' => 'decimal:3', // si tu columna es integer, cambia a 'integer'
     ];
 
-    // Relaciones
     public function insumo()
     {
         return $this->belongsTo(Insumo::class);
