@@ -34,3 +34,6 @@ public/build/
 # OS
 .DS_Store
 
+
+# Published vendor views (Breeze/Jetstream/etc)
+/resources/views/vendor/
