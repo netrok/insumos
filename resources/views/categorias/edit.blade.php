@@ -1,43 +1,72 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Editar Categoría</h2>
-    </x-slot>
+@extends('layouts.app')
 
-    <div class="py-8">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white shadow-sm sm:rounded-lg p-6">
-                <form method="POST" action="{{ route('categorias.update', $item) }}" class="space-y-4">
-                    @csrf @method('PUT')
+@section('title', 'Editar categoría')
+@section('header', 'Catálogos')
 
-                    <div>
-                        <label class="block text-sm font-medium">Nombre</label>
-                        <input name="nombre" value="{{ old('nombre', $item->nombre) }}"
-                               class="mt-1 w-full rounded border-gray-300" required>
-                        @error('nombre')<div class="text-red-600 text-sm mt-1">{{ $message }}</div>@enderror
-                    </div>
+@section('page_title', 'Editar categoría')
+@section('page_subtitle', 'Actualiza la información de la categoría')
 
-                    <div>
-                        <label class="block text-sm font-medium">Descripción</label>
-                        <input name="descripcion" value="{{ old('descripcion', $item->descripcion) }}"
-                               class="mt-1 w-full rounded border-gray-300">
-                    </div>
+@section('page_actions')
+    <a href="{{ route('categorias.index') }}"
+       class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50">
+        Volver
+    </a>
+@endsection
 
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" name="activa" value="1"
-                               class="rounded border-gray-300" {{ old('activa', $item->activa) ? 'checked' : '' }}>
-                        <span>Activa</span>
-                    </div>
+@section('content')
+<div class="max-w-3xl">
+    <div class="bg-white border rounded-2xl p-6">
+        <form method="POST" action="{{ route('categorias.update', $categoria) }}" class="space-y-5">
+            @csrf
+            @method('PUT')
 
-                    <div class="flex gap-2">
-                        <button class="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800">
-                            Guardar cambios
-                        </button>
-                        <a href="{{ route('categorias.index') }}" class="px-4 py-2 rounded border">
-                            Cancelar
-                        </a>
-                    </div>
-                </form>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Nombre</label>
+                <input
+                    name="nombre"
+                    value="{{ old('nombre', $categoria->nombre) }}"
+                    required
+                    class="mt-1 w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                >
+                @error('nombre')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                @enderror
             </div>
-        </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Descripción</label>
+                <input
+                    name="descripcion"
+                    value="{{ old('descripcion', $categoria->descripcion) }}"
+                    class="mt-1 w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                >
+                @error('descripcion')
+                    <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input
+                    type="checkbox"
+                    name="activa"
+                    value="1"
+                    class="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    {{ old('activa', $categoria->activa) ? 'checked' : '' }}
+                >
+                <span class="text-sm text-gray-700">Activa</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2 pt-2">
+                <button class="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:opacity-90">
+                    Guardar cambios
+                </button>
+
+                <a href="{{ route('categorias.index') }}"
+                   class="px-4 py-2 rounded-lg border text-sm hover:bg-gray-50 text-center">
+                    Cancelar
+                </a>
+            </div>
+        </form>
     </div>
-</x-app-layout>
+</div>
+@endsection

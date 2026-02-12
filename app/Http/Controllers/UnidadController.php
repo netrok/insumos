@@ -7,13 +7,20 @@ use Illuminate\Http\Request;
 
 class UnidadController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = Unidad::query()
-            ->orderBy('nombre')
-            ->paginate(10);
+        $q = $request->get('q');
 
-        return view('unidades.index', compact('items'));
+        $items = Unidad::query()
+            ->when($q, function ($query) use ($q) {
+                $query->where('nombre', 'ILIKE', "%{$q}%")
+                      ->orWhere('clave', 'ILIKE', "%{$q}%");
+            })
+            ->orderBy('nombre')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('unidades.index', compact('items', 'q'));
     }
 
     public function create()
@@ -25,50 +32,46 @@ class UnidadController extends Controller
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:120', 'unique:unidades,nombre'],
-            'clave'  => ['required', 'string', 'max:20',  'unique:unidades,clave'],
+            'clave'  => ['required', 'string', 'max:20', 'unique:unidades,clave'],
             'activa' => ['nullable', 'boolean'],
         ]);
 
-        $data['clave'] = strtoupper(trim($data['clave']));
+        $data['clave']  = strtoupper(trim($data['clave']));
         $data['activa'] = $request->boolean('activa');
 
         Unidad::create($data);
 
         return redirect()
             ->route('unidades.index')
-            ->with('ok', 'Unidad creada.');
+            ->with('success', 'Unidad creada.');
     }
 
     public function show(Unidad $unidad)
     {
-        $item = $unidad;
-
-        return view('unidades.show', compact('item'));
+        return view('unidades.show', compact('unidad'));
     }
 
     public function edit(Unidad $unidad)
     {
-        $item = $unidad;
-
-        return view('unidades.edit', compact('item'));
+        return view('unidades.edit', compact('unidad'));
     }
 
     public function update(Request $request, Unidad $unidad)
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:120', 'unique:unidades,nombre,' . $unidad->id],
-            'clave'  => ['required', 'string', 'max:20',  'unique:unidades,clave,' . $unidad->id],
+            'clave'  => ['required', 'string', 'max:20', 'unique:unidades,clave,' . $unidad->id],
             'activa' => ['nullable', 'boolean'],
         ]);
 
-        $data['clave'] = strtoupper(trim($data['clave']));
+        $data['clave']  = strtoupper(trim($data['clave']));
         $data['activa'] = $request->boolean('activa');
 
         $unidad->update($data);
 
         return redirect()
             ->route('unidades.index')
-            ->with('ok', 'Unidad actualizada.');
+            ->with('success', 'Unidad actualizada.');
     }
 
     public function destroy(Unidad $unidad)
@@ -77,6 +80,6 @@ class UnidadController extends Controller
 
         return redirect()
             ->route('unidades.index')
-            ->with('ok', 'Unidad eliminada.');
+            ->with('success', 'Unidad eliminada.');
     }
 }

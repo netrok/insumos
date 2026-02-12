@@ -7,13 +7,20 @@ use Illuminate\Http\Request;
 
 class CategoriaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = Categoria::query()
-            ->orderBy('nombre')
-            ->paginate(10);
+        $q = $request->get('q');
 
-        return view('categorias.index', compact('items'));
+        $items = Categoria::query()
+            ->when($q, function ($query) use ($q) {
+                // PostgreSQL: ILIKE (case-insensitive)
+                $query->where('nombre', 'ILIKE', "%{$q}%");
+            })
+            ->orderBy('nombre')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('categorias.index', compact('items', 'q'));
     }
 
     public function create()
@@ -35,21 +42,17 @@ class CategoriaController extends Controller
 
         return redirect()
             ->route('categorias.index')
-            ->with('ok', 'Categoría creada.');
+            ->with('success', 'Categoría creada.');
     }
 
     public function show(Categoria $categoria)
     {
-        $item = $categoria;
-
-        return view('categorias.show', compact('item'));
+        return view('categorias.show', compact('categoria'));
     }
 
     public function edit(Categoria $categoria)
     {
-        $item = $categoria;
-
-        return view('categorias.edit', compact('item'));
+        return view('categorias.edit', compact('categoria'));
     }
 
     public function update(Request $request, Categoria $categoria)
@@ -66,7 +69,7 @@ class CategoriaController extends Controller
 
         return redirect()
             ->route('categorias.index')
-            ->with('ok', 'Categoría actualizada.');
+            ->with('success', 'Categoría actualizada.');
     }
 
     public function destroy(Categoria $categoria)
@@ -75,6 +78,6 @@ class CategoriaController extends Controller
 
         return redirect()
             ->route('categorias.index')
-            ->with('ok', 'Categoría eliminada.');
+            ->with('success', 'Categoría eliminada.');
     }
 }

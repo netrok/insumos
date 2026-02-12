@@ -12,11 +12,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Dashboard (solo una vez)
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+// Rutas protegidas
+Route::middleware(['auth'])->group(function () {
+
     // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -35,6 +38,13 @@ Route::middleware('auth')->group(function () {
     // Insumos
     Route::resource('insumos', InsumoController::class)
         ->parameters(['insumos' => 'insumo']);
+
+    // (Temporal) módulos pendientes para el sidebar del layout
+    Route::view('/entradas', 'entradas.index')->name('entradas.index');
+    Route::view('/salidas', 'salidas.index')->name('salidas.index');
+    Route::view('/proveedores', 'proveedores.index')->name('proveedores.index');
+    Route::view('/reportes', 'reportes.index')->name('reportes.index');
+    Route::view('/admin', 'admin.index')->name('admin.index');
 });
 
 require __DIR__.'/auth.php';

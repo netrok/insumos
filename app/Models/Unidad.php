@@ -6,10 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Unidad extends Model
 {
+    protected $table = 'unidades';
+
     protected $fillable = ['nombre', 'clave', 'activa'];
 
-    protected static function booted(): void
+    protected $casts = [
+        'activa' => 'boolean',
+    ];
+
+    public function getRouteKeyName(): string
     {
-        static::setRouteKeyName('id');
+        return 'id';
     }
 }
