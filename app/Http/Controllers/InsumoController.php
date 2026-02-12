@@ -19,8 +19,8 @@ class InsumoController extends Controller
             ->with(['categoria', 'unidad'])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($qq) use ($q) {
-                    $qq->where('sku', 'ilike', "%{$q}%")
-                       ->orWhere('nombre', 'ilike', "%{$q}%");
+                    $qq->where('sku', 'ILIKE', "%{$q}%")
+                       ->orWhere('nombre', 'ILIKE', "%{$q}%");
                 });
             })
             ->when($categoriaId, fn ($query) => $query->where('categoria_id', $categoriaId))
@@ -32,15 +32,22 @@ class InsumoController extends Controller
         $categorias = Categoria::query()
             ->where('activa', true)
             ->orderBy('nombre')
-            ->get();
+            ->get(['id', 'nombre']);
 
         return view('insumos.index', compact('items', 'categorias', 'q', 'categoriaId', 'activo'));
     }
 
     public function create()
     {
-        $categorias = Categoria::query()->where('activa', true)->orderBy('nombre')->get();
-        $unidades   = Unidad::query()->where('activa', true)->orderBy('nombre')->get();
+        $categorias = Categoria::query()
+            ->where('activa', true)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        $unidades = Unidad::query()
+            ->where('activa', true)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'clave']);
 
         return view('insumos.create', compact('categorias', 'unidades'));
     }
@@ -63,22 +70,16 @@ class InsumoController extends Controller
         $data['stock_minimo'] = (int) ($data['stock_minimo'] ?? 0);
         $data['activo'] = $request->boolean('activo');
 
-        // Existencias se inicializan en InsumoObserver::created()
         Insumo::create($data);
 
         return redirect()
             ->route('insumos.index')
-            ->with('ok', 'Insumo creado (existencias inicializadas).');
+            ->with('ok', 'Insumo creado.');
     }
 
     public function show(Insumo $insumo)
     {
-        $item = $insumo->load([
-            'categoria',
-            'unidad',
-            'existencias.almacen',
-        ]);
-
+        $item = $insumo->load(['categoria', 'unidad', 'existencias.almacen']);
         return view('insumos.show', compact('item'));
     }
 
@@ -86,8 +87,15 @@ class InsumoController extends Controller
     {
         $item = $insumo;
 
-        $categorias = Categoria::query()->where('activa', true)->orderBy('nombre')->get();
-        $unidades   = Unidad::query()->where('activa', true)->orderBy('nombre')->get();
+        $categorias = Categoria::query()
+            ->where('activa', true)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        $unidades = Unidad::query()
+            ->where('activa', true)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'clave']);
 
         return view('insumos.edit', compact('item', 'categorias', 'unidades'));
     }

@@ -9,6 +9,8 @@ class Insumo extends Model
 {
     use HasFactory;
 
+    protected $table = 'insumos';
+
     protected $fillable = [
         'sku',
         'nombre',
@@ -21,9 +23,10 @@ class Insumo extends Model
     ];
 
     protected $casts = [
-        'activo' => 'boolean',
-        'costo_promedio' => 'decimal:2',
-        'stock_minimo' => 'decimal:2', // cámbialo a int si tu columna es integer
+        'activo'        => 'boolean',
+        'costo_promedio'=> 'decimal:2',
+        // Si en BD es integer, cámbialo a 'integer'
+        'stock_minimo'  => 'decimal:2',
     ];
 
     // Relaciones
@@ -42,7 +45,7 @@ class Insumo extends Model
         return $this->hasMany(Existencia::class);
     }
 
-    // Scopes útiles
+    // Scopes
     public function scopeActivos($q)
     {
         return $q->where('activo', true);
@@ -54,8 +57,8 @@ class Insumo extends Model
         if ($term === '') return $q;
 
         return $q->where(function ($qq) use ($term) {
-            $qq->where('nombre', 'ilike', "%{$term}%")
-               ->orWhere('sku', 'ilike', "%{$term}%");
+            $qq->where('nombre', 'ILIKE', "%{$term}%")
+               ->orWhere('sku', 'ILIKE', "%{$term}%");
         });
     }
 }

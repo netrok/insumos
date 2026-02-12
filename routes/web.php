@@ -12,7 +12,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Dashboard (solo una vez)
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -47,4 +46,4 @@ Route::middleware(['auth'])->group(function () {
     Route::view('/admin', 'admin.index')->name('admin.index');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
