@@ -259,12 +259,17 @@ class EntradaController extends Controller
         return (float) $total;
     }
 
+    /**
+     * PRO: Manejo de existencias con columna `stock` (no `cantidad`)
+     * Recomendado si existe unique(['almacen_id','insumo_id']) en la tabla existencias.
+     */
     private function applyStockDelta(int $almacenId, array $detalles, string $mode): void
     {
         foreach ($detalles as $d) {
             $insumoId = (int) $d['insumo_id'];
             $delta = (float) $d['cantidad'];
 
+            // Bloqueo para consistencia en concurrencia
             $existencia = Existencia::query()
                 ->where('almacen_id', $almacenId)
                 ->where('insumo_id', $insumoId)
@@ -272,18 +277,18 @@ class EntradaController extends Controller
                 ->first();
 
             if (!$existencia) {
-                $existencia = Existencia::create([
+                $existencia = Existencia::query()->create([
                     'almacen_id' => $almacenId,
                     'insumo_id'  => $insumoId,
-                    'cantidad'   => 0,
+                    'stock'      => 0,
                 ]);
             }
 
             if ($mode === 'decrement') {
-                $nuevo = (float) $existencia->cantidad - $delta;
-                $existencia->update(['cantidad' => max(0, $nuevo)]);
+                $nuevo = (float) $existencia->stock - $delta;
+                $existencia->update(['stock' => max(0, $nuevo)]);
             } else {
-                $existencia->increment('cantidad', $delta);
+                $existencia->increment('stock', $delta);
             }
         }
     }

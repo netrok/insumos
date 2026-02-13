@@ -10,19 +10,24 @@ class InsumoObserver
 {
     public function created(Insumo $insumo): void
     {
-        $almacenes = Almacen::query()->select('id')->get();
+        $now = now();
 
-        $rows = $almacenes->map(fn ($a) => [
+        $almacenIds = Almacen::query()->pluck('id');
+
+        $rows = $almacenIds->map(fn ($almacenId) => [
             'insumo_id'   => $insumo->id,
-            'almacen_id'  => $a->id,
-            'cantidad'    => 0,
-            'created_at'  => now(),
-            'updated_at'  => now(),
+            'almacen_id'  => $almacenId,
+            'stock'       => 0,
+            'created_at'  => $now,
+            'updated_at'  => $now,
         ])->all();
 
-        // Insert masivo (rápido)
         if (!empty($rows)) {
-            Existencia::insert($rows);
+            // Si tienes unique(['almacen_id','insumo_id']) en existencias, esto evita duplicados sin romper.
+            Existencia::query()->insertOrIgnore($rows);
+
+            // Si NO tienes unique, usa insert normal:
+            // Existencia::query()->insert($rows);
         }
     }
 }
