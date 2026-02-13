@@ -6,6 +6,7 @@ use App\Models\Categoria;
 use App\Models\Insumo;
 use App\Models\Unidad;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class InsumoController extends Controller
 {
@@ -80,6 +81,7 @@ class InsumoController extends Controller
     public function show(Insumo $insumo)
     {
         $item = $insumo->load(['categoria', 'unidad', 'existencias.almacen']);
+
         return view('insumos.show', compact('item'));
     }
 
@@ -127,6 +129,27 @@ class InsumoController extends Controller
 
     public function destroy(Insumo $insumo)
     {
+        // Blindado: si ya tiene existencias o movimientos, NO borrar, solo desactivar
+        $tieneExistencias = $insumo->existencias()->exists();
+
+        // Entradas: usa tabla directa para no depender de relaciones que quizá no tienes aún
+        $tieneEntradas = DB::table('entrada_detalles')
+            ->where('insumo_id', $insumo->id)
+            ->exists();
+
+        // Si después agregas salidas: cambia por tu tabla real (ej. salida_detalles)
+        $tieneSalidas = DB::getSchemaBuilder()->hasTable('salida_detalles')
+            ? DB::table('salida_detalles')->where('insumo_id', $insumo->id)->exists()
+            : false;
+
+        if ($tieneExistencias || $tieneEntradas || $tieneSalidas) {
+            $insumo->update(['activo' => false]);
+
+            return redirect()
+                ->route('insumos.index')
+                ->with('ok', 'Insumo desactivado (tiene movimientos/existencias).');
+        }
+
         $insumo->delete();
 
         return redirect()

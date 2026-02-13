@@ -44,13 +44,11 @@
                   class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
             <option value="">Todas</option>
 
-            @isset($categorias)
-              @foreach($categorias as $c)
-                <option value="{{ $c->id }}" @selected(($categoriaId ?? '') == $c->id)>
-                  {{ $c->nombre }}
-                </option>
-              @endforeach
-            @endisset
+            @foreach(($categorias ?? []) as $c)
+              <option value="{{ $c->id }}" @selected(($categoriaId ?? '') == $c->id)>
+                {{ $c->nombre }}
+              </option>
+            @endforeach
           </select>
         </div>
 
@@ -146,7 +144,7 @@
                   </x-btn>
 
                   <form method="POST" action="{{ route('insumos.destroy', $it) }}"
-                        onsubmit="return confirm('¿Eliminar insumo? Esta acción no se puede deshacer.');"
+                        onsubmit="return confirm('¿Eliminar / desactivar este insumo?');"
                         class="inline">
                     @csrf
                     @method('DELETE')

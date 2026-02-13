@@ -14,11 +14,12 @@ class Existencia extends Model
     protected $fillable = [
         'almacen_id',
         'insumo_id',
-        'stock',
+        'cantidad',
     ];
 
     protected $casts = [
-        'stock' => 'decimal:3', // si tu columna es integer, cambia a 'integer'
+        // Postgres numeric(14,3) => Laravel decimal:3 (evita errores de float)
+        'cantidad' => 'decimal:3',
     ];
 
     public function insumo()

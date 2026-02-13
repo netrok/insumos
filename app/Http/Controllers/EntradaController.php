@@ -9,7 +9,6 @@ use App\Models\Insumo;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class EntradaController extends Controller
 {
@@ -38,7 +37,6 @@ class EntradaController extends Controller
 
         $entradas = $query->paginate(15)->withQueryString();
 
-        // Para filtros en la vista (combos)
         $almacenes = Almacen::orderBy('nombre')->get(['id', 'nombre']);
         $proveedores = Proveedor::orderBy('nombre')->get(['id', 'nombre']);
 
@@ -49,30 +47,32 @@ class EntradaController extends Controller
     {
         $almacenes = Almacen::orderBy('nombre')->get(['id', 'nombre']);
         $proveedores = Proveedor::orderBy('nombre')->get(['id', 'nombre']);
-        $insumos = Insumo::orderBy('nombre')->get(['id', 'nombre']);
+        $insumos = Insumo::orderBy('nombre')->get(['id', 'sku', 'nombre']);
 
         return view('entradas.create', compact('almacenes', 'proveedores', 'insumos'));
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'fecha' => ['required', 'date'],
-            'almacen_id' => ['required', 'exists:almacenes,id'],
-            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
-            'tipo' => ['required', 'string', 'max:30'],
-            'observaciones' => ['nullable', 'string'],
-
-            'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.insumo_id' => ['required', 'exists:insumos,id'],
-            'detalles.*.cantidad' => ['required', 'numeric', 'gt:0'],
-            'detalles.*.costo_unitario' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $data = $this->validateEntrada($request);
 
         $entrada = DB::transaction(function () use ($data) {
-            $folio = 'ENT-' . now()->format('Ymd-His') . '-' . Str::upper(Str::random(4));
+
+            // ✅ Consecutivo blindado (evita duplicados en concurrencia)
+            $last = Entrada::query()
+                ->select('consecutivo')
+                ->whereNotNull('consecutivo')
+                ->orderByDesc('consecutivo')
+                ->lockForUpdate()
+                ->first();
+
+            $next = ((int) ($last?->consecutivo ?? 0)) + 1;
+
+            // Folio corto: ENT-00000001
+            $folio = 'ENT-' . str_pad((string) $next, 8, '0', STR_PAD_LEFT);
 
             $entrada = Entrada::create([
+                'consecutivo' => $next,
                 'folio' => $folio,
                 'fecha' => $data['fecha'],
                 'almacen_id' => $data['almacen_id'],
@@ -83,38 +83,12 @@ class EntradaController extends Controller
                 'total' => 0,
             ]);
 
-            $total = 0;
-
-            foreach ($data['detalles'] as $d) {
-                $cantidad = (float) $d['cantidad'];
-                $costo = (float) ($d['costo_unitario'] ?? 0);
-                $subtotal = round($cantidad * $costo, 2);
-
-                $entrada->detalles()->create([
-                    'insumo_id' => $d['insumo_id'],
-                    'cantidad' => $cantidad,
-                    'costo_unitario' => $costo,
-                    'subtotal' => $subtotal,
-                ]);
-
-                $total += $subtotal;
-
-                $existencia = Existencia::query()
-                    ->where('almacen_id', $entrada->almacen_id)
-                    ->where('insumo_id', $d['insumo_id'])
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$existencia) {
-                    $existencia = Existencia::create([
-                        'almacen_id' => $entrada->almacen_id,
-                        'insumo_id' => $d['insumo_id'],
-                        'stock' => 0,
-                    ]);
-                }
-
-                $existencia->increment('stock', $cantidad);
-            }
+            $total = $this->persistDetallesAndStock(
+                entrada: $entrada,
+                almacenId: (int) $entrada->almacen_id,
+                detalles: $data['detalles'],
+                mode: 'increment'
+            );
 
             $entrada->update(['total' => $total]);
 
@@ -129,22 +103,188 @@ class EntradaController extends Controller
     public function show(Entrada $entrada)
     {
         $entrada->load(['almacen', 'proveedor', 'detalles.insumo', 'createdBy']);
-
         return view('entradas.show', compact('entrada'));
     }
 
     public function edit(Entrada $entrada)
     {
-        abort(403);
+        $entrada->load(['detalles']);
+
+        $almacenes = Almacen::orderBy('nombre')->get(['id', 'nombre']);
+        $proveedores = Proveedor::orderBy('nombre')->get(['id', 'nombre']);
+        $insumos = Insumo::orderBy('nombre')->get(['id', 'sku', 'nombre']);
+
+        $detalles = $entrada->detalles->map(fn ($d) => [
+            'insumo_id' => (int) $d->insumo_id,
+            'cantidad' => (string) $d->cantidad,
+            'costo_unitario' => (string) ($d->costo_unitario ?? 0),
+        ])->values();
+
+        return view('entradas.edit', compact('entrada', 'almacenes', 'proveedores', 'insumos', 'detalles'));
     }
 
     public function update(Request $request, Entrada $entrada)
     {
-        abort(403);
+        $data = $this->validateEntrada($request);
+
+        $entrada = DB::transaction(function () use ($entrada, $data) {
+            $entrada->load(['detalles']);
+
+            // Revertir existencias del almacén anterior
+            $this->applyStockDelta(
+                almacenId: (int) $entrada->almacen_id,
+                detalles: $entrada->detalles->map(fn ($d) => [
+                    'insumo_id' => (int) $d->insumo_id,
+                    'cantidad' => (string) $d->cantidad,
+                ])->all(),
+                mode: 'decrement'
+            );
+
+            // Actualizar encabezado (NO tocamos consecutivo/folio)
+            $entrada->update([
+                'fecha' => $data['fecha'],
+                'almacen_id' => $data['almacen_id'],
+                'proveedor_id' => $data['proveedor_id'] ?? null,
+                'tipo' => $data['tipo'],
+                'observaciones' => $data['observaciones'] ?? null,
+                'total' => 0,
+            ]);
+
+            // Reemplazar detalles
+            $entrada->detalles()->delete();
+
+            // Aplicar existencias nuevas
+            $total = $this->persistDetallesAndStock(
+                entrada: $entrada,
+                almacenId: (int) $entrada->almacen_id,
+                detalles: $data['detalles'],
+                mode: 'increment'
+            );
+
+            $entrada->update(['total' => $total]);
+
+            return $entrada;
+        });
+
+        return redirect()
+            ->route('entradas.show', $entrada)
+            ->with('success', "Entrada actualizada: {$entrada->folio}");
     }
 
     public function destroy(Entrada $entrada)
     {
-        abort(403);
+        DB::transaction(function () use ($entrada) {
+            $entrada->load(['detalles']);
+
+            $this->applyStockDelta(
+                almacenId: (int) $entrada->almacen_id,
+                detalles: $entrada->detalles->map(fn ($d) => [
+                    'insumo_id' => (int) $d->insumo_id,
+                    'cantidad' => (string) $d->cantidad,
+                ])->all(),
+                mode: 'decrement'
+            );
+
+            $entrada->detalles()->delete();
+            $entrada->delete();
+        });
+
+        return redirect()
+            ->route('entradas.index')
+            ->with('success', 'Entrada eliminada.');
+    }
+
+    private function validateEntrada(Request $request): array
+    {
+        $data = $request->validate([
+            'fecha' => ['required', 'date'],
+            'almacen_id' => ['required', 'exists:almacenes,id'],
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'tipo' => ['required', 'string', 'max:30'],
+            'observaciones' => ['nullable', 'string'],
+
+            'detalles' => ['required', 'array', 'min:1'],
+            'detalles.*.insumo_id' => ['required', 'exists:insumos,id'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'gt:0'],
+            'detalles.*.costo_unitario' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $detalles = collect($data['detalles'])
+            ->map(fn ($d) => [
+                'insumo_id' => (int) $d['insumo_id'],
+                'cantidad' => (string) $d['cantidad'],
+                'costo_unitario' => (string) ($d['costo_unitario'] ?? 0),
+            ])
+            ->groupBy('insumo_id')
+            ->map(function ($rows) {
+                $cantidad = (float) $rows->sum(fn ($r) => (float) $r['cantidad']);
+                $subtotal = (float) $rows->sum(fn ($r) => (float) $r['cantidad'] * (float) $r['costo_unitario']);
+                $costoUnit = $cantidad > 0 ? ($subtotal / $cantidad) : 0;
+
+                return [
+                    'insumo_id' => (int) $rows->first()['insumo_id'],
+                    'cantidad' => number_format($cantidad, 3, '.', ''),
+                    'costo_unitario' => number_format($costoUnit, 2, '.', ''),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $data['detalles'] = $detalles;
+
+        return $data;
+    }
+
+    private function persistDetallesAndStock(Entrada $entrada, int $almacenId, array $detalles, string $mode): float
+    {
+        $total = 0.0;
+
+        foreach ($detalles as $d) {
+            $cantidad = (float) $d['cantidad'];
+            $costo = (float) ($d['costo_unitario'] ?? 0);
+            $subtotal = round($cantidad * $costo, 2);
+
+            $entrada->detalles()->create([
+                'insumo_id' => (int) $d['insumo_id'],
+                'cantidad' => $d['cantidad'],
+                'costo_unitario' => $d['costo_unitario'],
+                'subtotal' => $subtotal,
+            ]);
+
+            $total += $subtotal;
+        }
+
+        $this->applyStockDelta($almacenId, $detalles, $mode);
+
+        return (float) $total;
+    }
+
+    private function applyStockDelta(int $almacenId, array $detalles, string $mode): void
+    {
+        foreach ($detalles as $d) {
+            $insumoId = (int) $d['insumo_id'];
+            $delta = (float) $d['cantidad'];
+
+            $existencia = Existencia::query()
+                ->where('almacen_id', $almacenId)
+                ->where('insumo_id', $insumoId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$existencia) {
+                $existencia = Existencia::create([
+                    'almacen_id' => $almacenId,
+                    'insumo_id'  => $insumoId,
+                    'cantidad'   => 0,
+                ]);
+            }
+
+            if ($mode === 'decrement') {
+                $nuevo = (float) $existencia->cantidad - $delta;
+                $existencia->update(['cantidad' => max(0, $nuevo)]);
+            } else {
+                $existencia->increment('cantidad', $delta);
+            }
+        }
     }
 }

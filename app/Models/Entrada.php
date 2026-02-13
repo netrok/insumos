@@ -12,6 +12,7 @@ class Entrada extends Model
     protected $table = 'entradas';
 
     protected $fillable = [
+        'consecutivo',
         'folio',
         'fecha',
         'almacen_id',
@@ -23,6 +24,7 @@ class Entrada extends Model
     ];
 
     protected $casts = [
+        'consecutivo' => 'integer',
         'fecha' => 'date',
         'total' => 'decimal:2',
     ];

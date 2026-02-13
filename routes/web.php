@@ -28,7 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('unidades', UnidadController::class)->parameters(['unidades' => 'unidad']);
     Route::resource('almacenes', AlmacenController::class)->parameters(['almacenes' => 'almacen']);
 
-    // Insumos
+    // Insumos (SOLO UNA VEZ)
     Route::resource('insumos', InsumoController::class)->parameters(['insumos' => 'insumo']);
 
     // Proveedores

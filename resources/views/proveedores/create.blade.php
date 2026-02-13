@@ -1,77 +1,131 @@
 @extends('layouts.app')
 
 @section('title', 'Nuevo proveedor')
-
 @section('page_title', 'Nuevo proveedor')
-@section('page_subtitle', 'Captura la información básica del proveedor.')
+
+@section('page_subtitle')
+  Captura la información básica del proveedor.
+@endsection
 
 @section('page_actions')
-    <a href="{{ route('proveedores.index') }}"
-       class="inline-flex items-center px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">
-        ← Volver
-    </a>
+  <x-btn variant="secondary" href="{{ route('proveedores.index') }}">
+    <x-icon name="arrow-left" class="h-4 w-4" />
+    Volver
+  </x-btn>
 @endsection
 
 @section('content')
-    @if ($errors->any())
-        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            <div class="font-semibold mb-2">Corrige lo siguiente:</div>
-            <ul class="list-disc pl-5 space-y-1">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('proveedores.store') }}" class="bg-white border rounded-lg">
+  <div class="max-w-5xl">
+    <x-card>
+      <form method="POST" action="{{ route('proveedores.store') }}" class="p-6 space-y-6">
         @csrf
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Nombre</label>
-                <input name="nombre" value="{{ old('nombre') }}" required
-                       class="mt-1 block w-full rounded-md border-gray-300">
-            </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700">RFC</label>
-                <input name="rfc" value="{{ old('rfc') }}"
-                       class="mt-1 block w-full rounded-md border-gray-300">
-            </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {{-- Nombre --}}
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-gray-600">Nombre</label>
+            <input
+              type="text"
+              name="nombre"
+              value="{{ old('nombre') }}"
+              placeholder="Ej. Papelería López SA de CV"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+              required
+              autofocus
+            />
+            @error('nombre')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Teléfono</label>
-                <input name="telefono" value="{{ old('telefono') }}"
-                       class="mt-1 block w-full rounded-md border-gray-300">
-            </div>
+          {{-- RFC --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">RFC (opcional)</label>
+            <input
+              type="text"
+              name="rfc"
+              value="{{ old('rfc') }}"
+              placeholder="Ej. XAXX010101000"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black uppercase"
+            />
+            <div class="mt-1 text-xs text-gray-500">Se convertirá a mayúsculas automáticamente.</div>
+            @error('rfc')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Email</label>
-                <input name="email" value="{{ old('email') }}"
-                       class="mt-1 block w-full rounded-md border-gray-300">
-            </div>
+          {{-- Teléfono --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Teléfono (opcional)</label>
+            <input
+              type="text"
+              name="telefono"
+              value="{{ old('telefono') }}"
+              placeholder="Ej. 33 1234 5678"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            />
+            @error('telefono')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Dirección</label>
-                <textarea name="direccion" rows="2"
-                          class="mt-1 block w-full rounded-md border-gray-300">{{ old('direccion') }}</textarea>
-            </div>
+          {{-- Email --}}
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-gray-600">Email (opcional)</label>
+            <input
+              type="email"
+              name="email"
+              value="{{ old('email') }}"
+              placeholder="Ej. compras@proveedor.com"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            />
+            @error('email')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-            <div class="md:col-span-2 flex items-center gap-2">
-                <input id="activo" type="checkbox" name="activo" value="1"
-                       class="rounded border-gray-300" {{ old('activo', '1') ? 'checked' : '' }}>
-                <label for="activo" class="text-sm text-gray-700">Activo</label>
-            </div>
-
-            <div class="md:col-span-2 flex justify-end gap-3 pt-2">
-                <a href="{{ route('proveedores.index') }}"
-                   class="px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">
-                    Cancelar
-                </a>
-                <button class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:opacity-90">
-                    Guardar
-                </button>
-            </div>
+          {{-- Dirección --}}
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-gray-600">Dirección (opcional)</label>
+            <textarea
+              name="direccion"
+              rows="3"
+              placeholder="Calle, número, colonia, municipio, estado, CP…"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            >{{ old('direccion') }}</textarea>
+            @error('direccion')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
         </div>
-    </form>
+
+        {{-- Activo --}}
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 bg-white">
+          <div>
+            <div class="text-sm font-semibold text-gray-900">Activo</div>
+            <div class="text-xs text-gray-500">Si está inactivo, no aparecerá en formularios.</div>
+          </div>
+
+          <label class="inline-flex items-center cursor-pointer select-none">
+            <input type="checkbox" name="activo" value="1" class="sr-only peer" @checked(old('activo', true))>
+            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-gv-gold relative transition">
+              <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition peer-checked:translate-x-5"></div>
+            </div>
+          </label>
+        </div>
+
+        {{-- Actions --}}
+        <div class="flex flex-col sm:flex-row gap-2 justify-end">
+          <x-btn variant="secondary" href="{{ route('proveedores.index') }}">
+            Cancelar
+          </x-btn>
+
+          <x-btn type="submit">
+            <x-icon name="save" class="h-4 w-4" />
+            Guardar
+          </x-btn>
+        </div>
+      </form>
+    </x-card>
+  </div>
 @endsection

@@ -114,11 +114,27 @@
 
               <td class="px-4 py-3">
                 <div class="flex justify-end gap-2">
+                  {{-- Ver --}}
                   <x-btn variant="ghost" iconOnly href="{{ route('entradas.show', $e) }}" title="Ver">
                     <x-icon name="eye" class="h-4 w-4" />
                   </x-btn>
 
-                  {{-- Edit/Eliminar están bloqueados por controller (403), así que ni los mostramos --}}
+                  {{-- Editar --}}
+                  <x-btn variant="outline" iconOnly href="{{ route('entradas.edit', $e) }}" title="Editar">
+                    <x-icon name="edit" class="h-4 w-4" />
+                  </x-btn>
+
+                  {{-- Eliminar --}}
+                  <form method="POST" action="{{ route('entradas.destroy', $e) }}"
+                        onsubmit="return confirm('¿Eliminar entrada {{ $e->folio }}? Esto revertirá existencias.');"
+                        class="inline">
+                    @csrf
+                    @method('DELETE')
+
+                    <x-btn variant="danger" iconOnly type="submit" title="Eliminar">
+                      <x-icon name="trash" class="h-4 w-4" />
+                    </x-btn>
+                  </form>
                 </div>
               </td>
             </tr>

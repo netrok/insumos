@@ -6,214 +6,273 @@
 @section('page_subtitle', 'Captura insumos, cantidades y costo. Al guardar, se suman existencias.')
 
 @section('page_actions')
-    <a href="{{ route('entradas.index') }}"
-       class="inline-flex items-center px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">
-        ← Volver
-    </a>
+  <x-btn variant="secondary" href="{{ route('entradas.index') }}">
+    <x-icon name="arrow-left" class="h-4 w-4" />
+    Volver
+  </x-btn>
 @endsection
 
 @section('content')
-    @if ($errors->any())
-        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            <div class="font-semibold mb-2">Corrige lo siguiente:</div>
-            <ul class="list-disc pl-5 space-y-1">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+  @php
+    /** @var \Illuminate\Support\Collection|\App\Models\Almacen[] $almacenes */
+    /** @var \Illuminate\Support\Collection|\App\Models\Proveedor[] $proveedores */
+    /** @var \Illuminate\Support\Collection|\App\Models\Insumo[] $insumos */
+    $almacenes = $almacenes ?? collect();
+    $proveedores = $proveedores ?? collect();
+    $insumos = $insumos ?? collect();
 
-    <form method="POST" action="{{ route('entradas.store') }}" class="bg-white border rounded-lg">
+    // Para el JS (siempre array simple, sin "void")
+    $insumosJs = $insumos->map(fn ($i) => [
+      'id' => $i->id,
+      'sku' => $i->sku ?? null,
+      'nombre' => $i->nombre,
+    ])->values();
+  @endphp
+
+  <div class="max-w-6xl">
+    <x-card>
+      <form method="POST" action="{{ route('entradas.store') }}" class="p-6 space-y-6">
         @csrf
 
-        <div class="p-6 space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Fecha</label>
-                    <input type="date" name="fecha" value="{{ old('fecha', now()->format('Y-m-d')) }}"
-                           class="mt-1 block w-full rounded-md border-gray-300">
-                </div>
+        {{-- Encabezado --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {{-- Fecha --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Fecha</label>
+            <input
+              type="date"
+              name="fecha"
+              value="{{ old('fecha', now()->format('Y-m-d')) }}"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            />
+            @error('fecha')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Almacén</label>
-                    <select name="almacen_id" class="mt-1 block w-full rounded-md border-gray-300">
-                        <option value="">-- Selecciona --</option>
-                        @foreach($almacenes as $a)
-                            <option value="{{ $a->id }}" @selected(old('almacen_id') == $a->id)>{{ $a->nombre }}</option>
-                        @endforeach
-                    </select>
-                </div>
+          {{-- Almacén --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Almacén</label>
+            <select
+              name="almacen_id"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+              required
+            >
+              <option value="">Selecciona…</option>
+              @foreach($almacenes as $a)
+                <option value="{{ $a->id }}" @selected(old('almacen_id') == $a->id)>{{ $a->nombre }}</option>
+              @endforeach
+            </select>
+            @error('almacen_id')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Proveedor (opcional)</label>
-                    <select name="proveedor_id" class="mt-1 block w-full rounded-md border-gray-300">
-                        <option value="">-- Sin proveedor --</option>
-                        @foreach($proveedores as $p)
-                            <option value="{{ $p->id }}" @selected(old('proveedor_id') == $p->id)>{{ $p->nombre }}</option>
-                        @endforeach
-                    </select>
-                </div>
+          {{-- Proveedor --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Proveedor (opcional)</label>
+            <select
+              name="proveedor_id"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            >
+              <option value="">Sin proveedor</option>
+              @foreach($proveedores as $p)
+                <option value="{{ $p->id }}" @selected(old('proveedor_id') == $p->id)>{{ $p->nombre }}</option>
+              @endforeach
+            </select>
+            @error('proveedor_id')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Tipo</label>
-                    @php $tipo = old('tipo', 'compra'); @endphp
-                    <select name="tipo" class="mt-1 block w-full rounded-md border-gray-300">
-                        <option value="compra" @selected($tipo==='compra')>compra</option>
-                        <option value="ajuste" @selected($tipo==='ajuste')>ajuste</option>
-                        <option value="devolucion" @selected($tipo==='devolucion')>devolución</option>
-                        <option value="traspaso_entrada" @selected($tipo==='traspaso_entrada')>traspaso_entrada</option>
-                    </select>
-                </div>
+          {{-- Tipo --}}
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Tipo</label>
+            @php $tipo = old('tipo', 'compra'); @endphp
+            <select
+              name="tipo"
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            >
+              <option value="compra" @selected($tipo==='compra')>Compra</option>
+              <option value="ajuste" @selected($tipo==='ajuste')>Ajuste</option>
+              <option value="devolucion" @selected($tipo==='devolucion')>Devolución</option>
+              <option value="traspaso_entrada" @selected($tipo==='traspaso_entrada')>Traspaso (entrada)</option>
+            </select>
+            @error('tipo')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
 
-                <div class="md:col-span-4">
-                    <label class="block text-sm font-medium text-gray-700">Observaciones</label>
-                    <textarea name="observaciones" rows="2" class="mt-1 block w-full rounded-md border-gray-300">{{ old('observaciones') }}</textarea>
-                </div>
-            </div>
-
-            <div class="border-t pt-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="font-semibold text-gray-800">Detalles</h3>
-                    <button type="button" id="btnAddRow"
-                            class="inline-flex items-center px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
-                        + Agregar línea
-                    </button>
-                </div>
-
-                <div class="mt-4 overflow-x-auto">
-                    <table class="min-w-full text-sm" id="tablaDetalles">
-                        <thead class="bg-gray-50">
-                            <tr class="text-left border-b">
-                                <th class="py-2 px-3">Insumo</th>
-                                <th class="py-2 px-3">Cantidad</th>
-                                <th class="py-2 px-3">Costo unitario</th>
-                                <th class="py-2 px-3">Subtotal</th>
-                                <th class="py-2 px-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodyDetalles"></tbody>
-                    </table>
-                </div>
-
-                <div class="mt-4 text-right">
-                    <div class="text-sm text-gray-600">Total</div>
-                    <div class="text-2xl font-semibold" id="totalTxt">$ 0.00</div>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-end gap-3">
-                <a href="{{ route('entradas.index') }}"
-                   class="px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">
-                    Cancelar
-                </a>
-
-                <button type="submit"
-                        class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:opacity-90">
-                    Guardar entrada
-                </button>
-            </div>
+          {{-- Observaciones --}}
+          <div class="lg:col-span-4">
+            <label class="text-xs font-semibold text-gray-600">Observaciones (opcional)</label>
+            <textarea
+              name="observaciones"
+              rows="2"
+              placeholder="Notas, folio, referencia, etc."
+              class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black"
+            >{{ old('observaciones') }}</textarea>
+            @error('observaciones')
+              <div class="mt-1 text-xs text-red-600">{{ $message }}</div>
+            @enderror
+          </div>
         </div>
-    </form>
 
-    <script>
-        const insumos = @json($insumos);
-        const tbody = document.getElementById('tbodyDetalles');
-        const totalTxt = document.getElementById('totalTxt');
+        {{-- Detalles --}}
+        <div class="rounded-2xl border border-gray-200 overflow-hidden">
+          <div class="p-4 bg-gray-50 border-b flex items-center justify-between">
+            <div>
+              <div class="text-sm font-semibold text-gray-900">Detalles</div>
+              <div class="text-xs text-gray-500">Agrega insumos, cantidades y costo unitario.</div>
+            </div>
 
-        function money(n) { return (Number(n || 0)).toFixed(2); }
+            <x-btn variant="soft" type="button" id="btnAddRow">
+              <x-icon name="plus" class="h-4 w-4" />
+              Agregar línea
+            </x-btn>
+          </div>
 
-        function recalc() {
-            let total = 0;
-            tbody.querySelectorAll('tr').forEach(tr => {
-                const qty = Number(tr.querySelector('[data-qty]').value || 0);
-                const cost = Number(tr.querySelector('[data-cost]').value || 0);
-                const subtotal = qty * cost;
-                tr.querySelector('[data-subtotal]').textContent = '$ ' + money(subtotal);
-                total += subtotal;
-            });
-            totalTxt.textContent = '$ ' + money(total);
-        }
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm" id="tablaDetalles">
+              <thead class="bg-white text-gray-600">
+                <tr class="border-b">
+                  <th class="text-left font-medium px-4 py-3">Insumo</th>
+                  <th class="text-left font-medium px-4 py-3 w-40">Cantidad</th>
+                  <th class="text-left font-medium px-4 py-3 w-44">Costo unitario</th>
+                  <th class="text-left font-medium px-4 py-3 w-44">Subtotal</th>
+                  <th class="text-right font-medium px-4 py-3 w-24"></th>
+                </tr>
+              </thead>
+              <tbody id="tbodyDetalles" class="divide-y"></tbody>
+            </table>
+          </div>
 
-        function makeSelect(idx) {
-            const sel = document.createElement('select');
-            sel.name = `detalles[${idx}][insumo_id]`;
-            sel.className = 'mt-1 block w-full rounded-md border-gray-300';
+          <div class="p-4 bg-white border-t flex items-center justify-end">
+            <div class="text-right">
+              <div class="text-xs text-gray-500">Total</div>
+              <div class="text-2xl font-semibold text-gray-900" id="totalTxt">$ 0.00</div>
+            </div>
+          </div>
+        </div>
 
-            const opt0 = document.createElement('option');
-            opt0.value = '';
-            opt0.textContent = '-- Selecciona --';
-            sel.appendChild(opt0);
+        {{-- Actions --}}
+        <div class="flex flex-col sm:flex-row gap-2 justify-end">
+          <x-btn variant="secondary" href="{{ route('entradas.index') }}">
+            Cancelar
+          </x-btn>
 
-            insumos.forEach(i => {
-                const opt = document.createElement('option');
-                opt.value = i.id;
-                opt.textContent = i.nombre;
-                sel.appendChild(opt);
-            });
+          <x-btn type="submit">
+            <x-icon name="save" class="h-4 w-4" />
+            Guardar entrada
+          </x-btn>
+        </div>
+      </form>
+    </x-card>
+  </div>
 
-            return sel;
-        }
+  <script>
+    const insumos = @json($insumosJs);
+    const tbody = document.getElementById('tbodyDetalles');
+    const totalTxt = document.getElementById('totalTxt');
 
-        function reindex() {
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            rows.forEach((tr, idx) => {
-                tr.querySelector('select').name = `detalles[${idx}][insumo_id]`;
-                tr.querySelector('[data-qty]').name = `detalles[${idx}][cantidad]`;
-                tr.querySelector('[data-cost]').name = `detalles[${idx}][costo_unitario]`;
-            });
-        }
+    function money(n) { return (Number(n || 0)).toFixed(2); }
 
-        function addRow() {
-            const idx = tbody.querySelectorAll('tr').length;
+    function recalc() {
+      let total = 0;
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const qty = Number(tr.querySelector('[data-qty]').value || 0);
+        const cost = Number(tr.querySelector('[data-cost]').value || 0);
+        const subtotal = qty * cost;
+        tr.querySelector('[data-subtotal]').textContent = '$ ' + money(subtotal);
+        total += subtotal;
+      });
+      totalTxt.textContent = '$ ' + money(total);
+    }
 
-            const tr = document.createElement('tr');
-            tr.className = 'border-b';
+    function makeSelect(idx) {
+      const sel = document.createElement('select');
+      sel.name = `detalles[${idx}][insumo_id]`;
+      sel.className = 'w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black';
 
-            const tdInsumo = document.createElement('td');
-            tdInsumo.className = 'py-2 px-3 min-w-[260px]';
-            const sel = makeSelect(idx);
-            tdInsumo.appendChild(sel);
+      const opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = 'Selecciona…';
+      sel.appendChild(opt0);
 
-            const tdQty = document.createElement('td');
-            tdQty.className = 'py-2 px-3';
-            tdQty.innerHTML = `<input data-qty type="number" step="0.001" min="0" class="mt-1 block w-full rounded-md border-gray-300" value="1">`;
+      insumos.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = i.sku ? `${i.sku} — ${i.nombre}` : i.nombre;
+        sel.appendChild(opt);
+      });
 
-            const tdCost = document.createElement('td');
-            tdCost.className = 'py-2 px-3';
-            tdCost.innerHTML = `<input data-cost type="number" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300" value="0">`;
+      return sel;
+    }
 
-            const tdSub = document.createElement('td');
-            tdSub.className = 'py-2 px-3 whitespace-nowrap';
-            tdSub.innerHTML = `<span data-subtotal>$ 0.00</span>`;
+    function reindex() {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.forEach((tr, idx) => {
+        tr.querySelector('select').name = `detalles[${idx}][insumo_id]`;
+        tr.querySelector('[data-qty]').name = `detalles[${idx}][cantidad]`;
+        tr.querySelector('[data-cost]').name = `detalles[${idx}][costo_unitario]`;
+      });
+    }
 
-            const tdDel = document.createElement('td');
-            tdDel.className = 'py-2 px-3 text-right';
-            tdDel.innerHTML = `<button type="button" class="text-red-600 hover:underline">Quitar</button>`;
-            tdDel.querySelector('button').addEventListener('click', () => {
-                tr.remove();
-                reindex();
-                recalc();
-            });
+    function addRow() {
+      const idx = tbody.querySelectorAll('tr').length;
 
-            tr.appendChild(tdInsumo);
-            tr.appendChild(tdQty);
-            tr.appendChild(tdCost);
-            tr.appendChild(tdSub);
-            tr.appendChild(tdDel);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-gray-50';
 
-            tr.querySelector('[data-qty]').addEventListener('input', recalc);
-            tr.querySelector('[data-cost]').addEventListener('input', recalc);
-            sel.addEventListener('change', recalc);
+      const tdInsumo = document.createElement('td');
+      tdInsumo.className = 'px-4 py-3 min-w-[320px]';
+      const sel = makeSelect(idx);
+      tdInsumo.appendChild(sel);
 
-            tbody.appendChild(tr);
-            reindex();
-            recalc();
-        }
+      const tdQty = document.createElement('td');
+      tdQty.className = 'px-4 py-3';
+      tdQty.innerHTML = `<input data-qty type="number" step="0.001" min="0"
+        class="w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black" value="1">`;
 
-        document.getElementById('btnAddRow').addEventListener('click', addRow);
+      const tdCost = document.createElement('td');
+      tdCost.className = 'px-4 py-3';
+      tdCost.innerHTML = `<input data-cost type="number" step="0.01" min="0"
+        class="w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black" value="0">`;
 
-        // Arranca con 1 línea
-        addRow();
-    </script>
+      const tdSub = document.createElement('td');
+      tdSub.className = 'px-4 py-3 whitespace-nowrap font-semibold';
+      tdSub.innerHTML = `<span data-subtotal>$ 0.00</span>`;
+
+      const tdDel = document.createElement('td');
+      tdDel.className = 'px-4 py-3 text-right';
+      tdDel.innerHTML = `
+        <button type="button" class="inline-flex items-center justify-center p-2 rounded-xl hover:bg-red-50 text-red-700">
+          <span class="sr-only">Quitar</span>
+          ✕
+        </button>`;
+      tdDel.querySelector('button').addEventListener('click', () => {
+        tr.remove();
+        reindex();
+        recalc();
+      });
+
+      tr.appendChild(tdInsumo);
+      tr.appendChild(tdQty);
+      tr.appendChild(tdCost);
+      tr.appendChild(tdSub);
+      tr.appendChild(tdDel);
+
+      tr.querySelector('[data-qty]').addEventListener('input', recalc);
+      tr.querySelector('[data-cost]').addEventListener('input', recalc);
+      sel.addEventListener('change', recalc);
+
+      tbody.appendChild(tr);
+      reindex();
+      recalc();
+    }
+
+    document.getElementById('btnAddRow').addEventListener('click', addRow);
+
+    addRow();
+  </script>
 @endsection
