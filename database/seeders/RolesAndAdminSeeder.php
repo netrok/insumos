@@ -11,6 +11,8 @@ class RolesAndAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
         $roles = ['ADMIN', 'ALMACEN', 'COMPRAS', 'SOLICITANTE', 'AUDITOR'];
 
         foreach ($roles as $r) {
@@ -18,15 +20,14 @@ class RolesAndAdminSeeder extends Seeder
         }
 
         $admin = User::firstOrCreate(
-            ['email' => 'admin@insumos.local'],
+            ['email' => 'admin@insumos.test'],
             [
                 'name' => 'Admin',
                 'password' => Hash::make('Admin12345!'),
             ]
         );
 
-        if (! $admin->hasRole('ADMIN')) {
-            $admin->assignRole('ADMIN');
-        }
+        $admin->syncRoles(['ADMIN']);
     }
+
 }
