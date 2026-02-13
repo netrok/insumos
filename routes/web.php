@@ -9,6 +9,7 @@ use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\InsumoController;
 use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\SalidaController;
 
 Route::get('/', fn () => view('welcome'));
 
@@ -28,7 +29,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('unidades', UnidadController::class)->parameters(['unidades' => 'unidad']);
     Route::resource('almacenes', AlmacenController::class)->parameters(['almacenes' => 'almacen']);
 
-    // Insumos (SOLO UNA VEZ)
+    // Insumos
     Route::resource('insumos', InsumoController::class)->parameters(['insumos' => 'insumo']);
 
     // Proveedores
@@ -37,8 +38,10 @@ Route::middleware(['auth'])->group(function () {
     // Entradas
     Route::resource('entradas', EntradaController::class)->parameters(['entradas' => 'entrada']);
 
-    // (Temporal) módulos pendientes
-    Route::view('/salidas', 'salidas.index')->name('salidas.index');
+    // Salidas (YA REAL, no temporal)
+    Route::resource('salidas', SalidaController::class)->parameters(['salidas' => 'salida']);
+
+    // Otros módulos (temporales)
     Route::view('/reportes', 'reportes.index')->name('reportes.index');
     Route::view('/admin', 'admin.index')->name('admin.index');
 });
