@@ -14,9 +14,17 @@ use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ReporteProveedorController;
 use App\Http\Controllers\DashboardController;
 
+// Admin
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\EmpresaController;
+use App\Http\Controllers\Admin\FolioController;
+use App\Http\Controllers\Admin\ParametroController;
+use App\Http\Controllers\Admin\AuditoriaMovController;
+
 // Raíz: manda al dashboard
 Route::get('/', fn () => redirect()->route('dashboard'));
 
+// Dashboard (auth + verified)
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
@@ -45,9 +53,6 @@ Route::middleware(['auth'])->group(function () {
     // Salidas
     Route::resource('salidas', SalidaController::class)->parameters(['salidas' => 'salida']);
 
-    // Admin (temporal)
-    Route::view('/admin', 'admin.index')->name('admin.index');
-
     // Reportes (index manda a Kardex)
     Route::redirect('/reportes', '/reportes/kardex')->name('reportes.index');
 
@@ -62,10 +67,37 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/proveedores.xlsx', [ReporteProveedorController::class, 'listaXlsx'])->name('proveedores.xlsx');
         Route::get('/proveedores.pdf',  [ReporteProveedorController::class, 'listaPdf'])->name('proveedores.pdf');
 
-        // Proveedores (uno específico)
+        // Proveedor específico
         Route::get('/proveedores/{proveedor}.xlsx', [ReporteProveedorController::class, 'proveedorXlsx'])->name('proveedores.proveedor.xlsx');
         Route::get('/proveedores/{proveedor}.pdf',  [ReporteProveedorController::class, 'proveedorPdf'])->name('proveedores.proveedor.pdf');
     });
+
+    /**
+     * ADMIN — protegido y sin duplicados
+     * Requiere Spatie middleware alias: role
+     */
+    Route::prefix('admin')
+        ->name('admin.')
+        ->middleware(['role:Admin'])
+        ->group(function () {
+
+            Route::get('/', [AdminController::class, 'index'])->name('index');
+
+            // Empresa
+            Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
+            Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
+
+            // Folios
+            Route::get('/folios', [FolioController::class, 'index'])->name('folios.index');
+            Route::put('/folios', [FolioController::class, 'update'])->name('folios.update');
+
+            // Parámetros
+            Route::get('/parametros', [ParametroController::class, 'index'])->name('parametros.index');
+            Route::put('/parametros', [ParametroController::class, 'update'])->name('parametros.update');
+
+            // Auditoría
+            Route::get('/auditoria/movimientos', [AuditoriaMovController::class, 'index'])->name('auditoria.movimientos');
+        });
 });
 
 require __DIR__ . '/auth.php';

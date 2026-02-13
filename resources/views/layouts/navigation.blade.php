@@ -98,3 +98,7 @@
         </div>
     </div>
 </nav>
+
+@role('Admin')
+  <a href="{{ route('admin.index') }}" class="...">Administración</a>
+@endrole
