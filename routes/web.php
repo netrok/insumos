@@ -10,6 +10,7 @@ use App\Http\Controllers\InsumoController;
 use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\SalidaController;
+use App\Http\Controllers\ReporteController;
 
 Route::get('/', fn () => view('welcome'));
 
@@ -38,12 +39,20 @@ Route::middleware(['auth'])->group(function () {
     // Entradas
     Route::resource('entradas', EntradaController::class)->parameters(['entradas' => 'entrada']);
 
-    // Salidas (YA REAL, no temporal)
+    // Salidas
     Route::resource('salidas', SalidaController::class)->parameters(['salidas' => 'salida']);
 
-    // Otros módulos (temporales)
-    Route::view('/reportes', 'reportes.index')->name('reportes.index');
+    // Admin (temporal)
     Route::view('/admin', 'admin.index')->name('admin.index');
+
+    // Reportes -> manda directo a Kardex (y conserva nombre reportes.index)
+    Route::redirect('/reportes', '/reportes/kardex')->name('reportes.index');
+
+    Route::prefix('reportes')->name('reportes.')->group(function () {
+        Route::get('/kardex', [ReporteController::class, 'kardex'])->name('kardex');
+        Route::get('/kardex.xlsx', [ReporteController::class, 'kardexXlsx'])->name('kardex.xlsx');
+        Route::get('/kardex.pdf', [ReporteController::class, 'kardexPdf'])->name('kardex.pdf');
+    });
 });
 
 require __DIR__ . '/auth.php';
