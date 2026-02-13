@@ -41,9 +41,7 @@ class ReporteProveedorController extends Controller
             'generado' => now(),
         ])->setPaper('letter', 'portrait');
 
-        // Opciones que suelen evitar “PDF en blanco”
-        $pdf->setOption('isHtml5ParserEnabled', true);
-        $pdf->setOption('isRemoteEnabled', true);
+        $this->configurePdf($pdf);
 
         return $pdf->download('proveedores_' . now()->format('Ymd_His') . '.pdf');
     }
@@ -61,10 +59,18 @@ class ReporteProveedorController extends Controller
             'generado' => now(),
         ])->setPaper('letter', 'portrait');
 
-        // Opciones que suelen evitar “PDF en blanco”
-        $pdf->setOption('isHtml5ParserEnabled', true);
-        $pdf->setOption('isRemoteEnabled', true);
+        $this->configurePdf($pdf);
 
         return $pdf->download('proveedor_' . $proveedor->id . '_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    /**
+     * Configuración DomPDF “anti-PDF-en-blanco”
+     */
+    private function configurePdf($pdf): void
+    {
+        $pdf->setOption('isHtml5ParserEnabled', true);
+        $pdf->setOption('isRemoteEnabled', true);
+        $pdf->setOption('defaultFont', 'DejaVu Sans');
     }
 }
