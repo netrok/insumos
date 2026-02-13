@@ -11,10 +11,13 @@ use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\SalidaController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\ReporteProveedorController;
+use App\Http\Controllers\DashboardController;
 
-Route::get('/', fn () => view('welcome'));
+// Raíz: manda al dashboard
+Route::get('/', fn () => redirect()->route('dashboard'));
 
-Route::get('/dashboard', fn () => view('dashboard'))
+Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -45,13 +48,23 @@ Route::middleware(['auth'])->group(function () {
     // Admin (temporal)
     Route::view('/admin', 'admin.index')->name('admin.index');
 
-    // Reportes -> manda directo a Kardex (y conserva nombre reportes.index)
+    // Reportes (index manda a Kardex)
     Route::redirect('/reportes', '/reportes/kardex')->name('reportes.index');
 
     Route::prefix('reportes')->name('reportes.')->group(function () {
+
+        // Kardex
         Route::get('/kardex', [ReporteController::class, 'kardex'])->name('kardex');
         Route::get('/kardex.xlsx', [ReporteController::class, 'kardexXlsx'])->name('kardex.xlsx');
         Route::get('/kardex.pdf', [ReporteController::class, 'kardexPdf'])->name('kardex.pdf');
+
+        // Proveedores (lista)
+        Route::get('/proveedores.xlsx', [ReporteProveedorController::class, 'listaXlsx'])->name('proveedores.xlsx');
+        Route::get('/proveedores.pdf',  [ReporteProveedorController::class, 'listaPdf'])->name('proveedores.pdf');
+
+        // Proveedores (uno específico)
+        Route::get('/proveedores/{proveedor}.xlsx', [ReporteProveedorController::class, 'proveedorXlsx'])->name('proveedores.proveedor.xlsx');
+        Route::get('/proveedores/{proveedor}.pdf',  [ReporteProveedorController::class, 'proveedorPdf'])->name('proveedores.proveedor.pdf');
     });
 });
 

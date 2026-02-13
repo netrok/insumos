@@ -8,10 +8,22 @@
 @endsection
 
 @section('page_actions')
-  <x-btn href="{{ route('proveedores.create') }}">
-    <x-icon name="plus" class="h-4 w-4" />
-    Nuevo proveedor
-  </x-btn>
+  <div class="flex flex-wrap gap-2">
+    <x-btn href="{{ route('proveedores.create') }}">
+      <x-icon name="plus" class="h-4 w-4" />
+      Nuevo proveedor
+    </x-btn>
+
+    <x-btn variant="outline" href="{{ route('reportes.proveedores.xlsx', ['q' => request('q')]) }}">
+      <x-icon name="download" class="h-4 w-4" />
+      XLSX
+    </x-btn>
+
+    <x-btn variant="outline" href="{{ route('reportes.proveedores.pdf', ['q' => request('q')]) }}">
+      <x-icon name="file" class="h-4 w-4" />
+      PDF
+    </x-btn>
+  </div>
 @endsection
 
 @section('content')
@@ -58,7 +70,6 @@
 
               <td class="py-3 px-4 text-right whitespace-nowrap">
                 <div class="inline-flex items-center gap-2">
-
                   <x-btn variant="ghost" iconOnly href="{{ route('proveedores.show', $p) }}" title="Ver">
                     <x-icon name="eye" class="h-4 w-4" />
                   </x-btn>
@@ -77,7 +88,6 @@
                       <x-icon name="trash" class="h-4 w-4" />
                     </x-btn>
                   </form>
-
                 </div>
               </td>
             </tr>
