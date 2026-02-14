@@ -73,12 +73,12 @@ Route::middleware(['auth'])->group(function () {
     });
 
     /**
-     * ADMIN — protegido y sin duplicados
-     * Requiere Spatie middleware alias: role
+     * ADMIN — protegido
+     * Nota: tu rol real es "ADMIN" (mayúsculas), por eso aquí va así.
      */
     Route::prefix('admin')
         ->name('admin.')
-        ->middleware(['role:Admin'])
+        ->middleware(['role:ADMIN'])
         ->group(function () {
 
             Route::get('/', [AdminController::class, 'index'])->name('index');
