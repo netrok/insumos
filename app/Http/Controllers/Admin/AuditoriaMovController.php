@@ -15,6 +15,7 @@ class AuditoriaMovController extends Controller
         $from = $request->get('from', now()->subDays(7)->toDateString());
         $to   = $request->get('to', now()->toDateString());
 
+        // Subquery UNION (ENT + SAL)
         $base = DB::query()->fromSub(function ($sub) {
 
             // ENTRADAS
@@ -26,6 +27,7 @@ class AuditoriaMovController extends Controller
                 ->selectRaw("
                     e.id as doc_id,
                     'entradas' as doc_tipo,
+
                     e.fecha as fecha,
                     e.created_at as created_at,
                     'ENT' as tipo,
@@ -45,6 +47,7 @@ class AuditoriaMovController extends Controller
                         ->selectRaw("
                             s.id as doc_id,
                             'salidas' as doc_tipo,
+
                             s.fecha as fecha,
                             s.created_at as created_at,
                             'SAL' as tipo,
@@ -66,23 +69,27 @@ class AuditoriaMovController extends Controller
         }
 
         // Fechas
-        if (!empty($from)) $base->whereDate('m.fecha', '>=', $from);
-        if (!empty($to))   $base->whereDate('m.fecha', '<=', $to);
+        if (!empty($from)) {
+            $base->whereDate('m.fecha', '>=', $from);
+        }
+        if (!empty($to)) {
+            $base->whereDate('m.fecha', '<=', $to);
+        }
 
-        // Búsqueda (ILIKE)
+        // Búsqueda (ILIKE) + escape % _
         if ($q !== '') {
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q) . '%';
 
             $base->where(function ($w) use ($like) {
                 $w->where('m.folio', 'ilike', $like)
-                  ->orWhere('m.usuario', 'ilike', $like)
-                  ->orWhere('m.insumo', 'ilike', $like)
-                  ->orWhere('m.almacen', 'ilike', $like)
-                  ->orWhere('m.tipo', 'ilike', $like);
+                    ->orWhere('m.usuario', 'ilike', $like)
+                    ->orWhere('m.insumo', 'ilike', $like)
+                    ->orWhere('m.almacen', 'ilike', $like)
+                    ->orWhere('m.tipo', 'ilike', $like);
             });
         }
 
-        // KPIs (clonar antes de paginar/ordenar)
+        // KPIs (clonar antes de ordenar/paginar)
         $kpiQ = clone $base;
 
         $kpis = (array) (
