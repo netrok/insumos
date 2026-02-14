@@ -24,11 +24,13 @@ class AuditoriaMovController extends Controller
                 ->leftJoin('insumos as i', 'i.id', '=', 'd.insumo_id')
                 ->leftJoin('almacenes as a', 'a.id', '=', 'e.almacen_id')
                 ->selectRaw("
+                    e.id as doc_id,
+                    'entradas' as doc_tipo,
                     e.fecha as fecha,
                     e.created_at as created_at,
                     'ENT' as tipo,
                     COALESCE(e.folio, e.id::text) as folio,
-                    u.name as usuario,
+                    COALESCE(u.name, '—') as usuario,
                     i.nombre as insumo,
                     a.nombre as almacen,
                     d.cantidad as cantidad
@@ -41,11 +43,13 @@ class AuditoriaMovController extends Controller
                         ->leftJoin('insumos as i2', 'i2.id', '=', 'sd.insumo_id')
                         ->leftJoin('almacenes as a2', 'a2.id', '=', 's.almacen_id')
                         ->selectRaw("
+                            s.id as doc_id,
+                            'salidas' as doc_tipo,
                             s.fecha as fecha,
                             s.created_at as created_at,
                             'SAL' as tipo,
                             COALESCE(s.folio, s.id::text) as folio,
-                            u2.name as usuario,
+                            COALESCE(u2.name, '—') as usuario,
                             i2.nombre as insumo,
                             a2.nombre as almacen,
                             (sd.cantidad * -1) as cantidad
@@ -90,6 +94,7 @@ class AuditoriaMovController extends Controller
             ")->first() ?? []
         );
 
+        // Orden + paginado
         $items = $base
             ->orderByDesc('m.fecha')
             ->orderByDesc('m.created_at')

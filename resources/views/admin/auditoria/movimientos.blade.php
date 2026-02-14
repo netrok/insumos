@@ -1,3 +1,4 @@
+{{-- resources/views/admin/auditoria/movimientos.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Auditoría')
@@ -131,6 +132,7 @@
               <th class="py-3 px-4 font-semibold">Insumo</th>
               <th class="py-3 px-4 font-semibold">Almacén</th>
               <th class="py-3 px-4 font-semibold text-right">Cantidad</th>
+              <th class="py-3 px-4 font-semibold">Acciones</th>
             </tr>
           </thead>
 
@@ -141,6 +143,9 @@
                 $fechaRaw = data_get($m, 'fecha');
                 $fecha = $fechaRaw ? \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d') : '—';
                 $cantidad = (float) data_get($m, 'cantidad', 0);
+
+                $docTipo = (string) data_get($m, 'doc_tipo', '');
+                $docId   = data_get($m, 'doc_id');
               @endphp
 
               <tr class="hover:bg-slate-50/60">
@@ -168,10 +173,22 @@
                 <td class="py-3 px-4 text-right font-extrabold {{ $cantidad < 0 ? 'text-rose-700' : 'text-slate-900' }}">
                   {{ number_format($cantidad, 2) }}
                 </td>
+
+                <td class="py-3 px-4">
+                  @if($docTipo === 'entradas' && $docId)
+                    <a class="text-sm font-bold text-slate-900 hover:underline"
+                       href="{{ route('entradas.show', $docId) }}">Ver</a>
+                  @elseif($docTipo === 'salidas' && $docId)
+                    <a class="text-sm font-bold text-slate-900 hover:underline"
+                       href="{{ route('salidas.show', $docId) }}">Ver</a>
+                  @else
+                    —
+                  @endif
+                </td>
               </tr>
             @empty
               <tr>
-                <td class="py-10 px-4 text-center text-slate-600" colspan="7">
+                <td class="py-10 px-4 text-center text-slate-600" colspan="8">
                   Sin movimientos.
                 </td>
               </tr>
