@@ -14,7 +14,7 @@ class SalidaController extends Controller
     public function index(Request $request)
     {
         $query = Salida::query()
-            ->with(['almacen'])
+            ->with(['almacen', 'createdBy']) // 👈 opcional, pero útil
             ->orderByDesc('fecha')
             ->orderByDesc('id');
 
@@ -23,15 +23,15 @@ class SalidaController extends Controller
         }
 
         if ($request->filled('desde')) {
-            $query->whereDate('fecha', '>=', $request->date('desde'));
+            $query->whereDate('fecha', '>=', $request->input('desde'));
         }
 
         if ($request->filled('hasta')) {
-            $query->whereDate('fecha', '<=', $request->date('hasta'));
+            $query->whereDate('fecha', '<=', $request->input('hasta'));
         }
 
         if ($request->filled('tipo')) {
-            $query->where('tipo', (string) $request->input('tipo')); // ✅ string real
+            $query->where('tipo', (string) $request->input('tipo'));
         }
 
         $salidas = $query->paginate(15)->withQueryString();
@@ -45,7 +45,7 @@ class SalidaController extends Controller
         $almacenes = Almacen::orderBy('nombre')->get(['id', 'nombre']);
         $insumos = Insumo::orderBy('nombre')->get(['id', 'sku', 'nombre', 'costo_promedio']);
 
-        $tipos = ['consumo', 'merma', 'ajuste', 'traspaso']; // traspaso fase 2
+        $tipos = ['consumo', 'merma', 'ajuste', 'traspaso'];
 
         return view('salidas.create', compact('almacenes', 'insumos', 'tipos'));
     }
@@ -57,7 +57,6 @@ class SalidaController extends Controller
         try {
             $salida = DB::transaction(function () use ($data) {
 
-                // Consecutivo blindado
                 $last = Salida::query()
                     ->select('consecutivo')
                     ->whereNotNull('consecutivo')
@@ -75,7 +74,7 @@ class SalidaController extends Controller
                     'almacen_id'    => $data['almacen_id'],
                     'tipo'          => $data['tipo'],
                     'observaciones' => $data['observaciones'] ?? null,
-                    'created_by'    => auth()->id(),
+                    'created_by'    => auth()->id(), // ✅ aquí queda
                     'total'         => 0,
                 ]);
 
@@ -132,7 +131,6 @@ class SalidaController extends Controller
             $salida = DB::transaction(function () use ($salida, $data) {
                 $salida->load(['detalles']);
 
-                // Revertir stock del almacén anterior (sumar de regreso)
                 $this->applyStockDelta(
                     almacenId: (int) $salida->almacen_id,
                     detalles: $salida->detalles->map(fn ($d) => [
@@ -142,7 +140,6 @@ class SalidaController extends Controller
                     mode: 'increment'
                 );
 
-                // Actualizar encabezado (NO tocamos consecutivo/folio)
                 $salida->update([
                     'fecha' => $data['fecha'],
                     'almacen_id' => $data['almacen_id'],
@@ -151,10 +148,8 @@ class SalidaController extends Controller
                     'total' => 0,
                 ]);
 
-                // Reemplazar detalles
                 $salida->detalles()->delete();
 
-                // Aplicar nuevo descuento de stock
                 $total = $this->persistDetallesAndStock(
                     salida: $salida,
                     almacenId: (int) $salida->almacen_id,
@@ -182,7 +177,6 @@ class SalidaController extends Controller
         DB::transaction(function () use ($salida) {
             $salida->load(['detalles']);
 
-            // Al eliminar, regresamos stock
             $this->applyStockDelta(
                 almacenId: (int) $salida->almacen_id,
                 detalles: $salida->detalles->map(fn ($d) => [
@@ -215,7 +209,6 @@ class SalidaController extends Controller
             'detalles.*.costo_unitario' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        // Consolidar por insumo_id (evita duplicados en misma salida)
         $detalles = collect($data['detalles'])
             ->map(fn ($d) => [
                 'insumo_id' => (int) $d['insumo_id'],
@@ -246,11 +239,10 @@ class SalidaController extends Controller
     {
         $total = 0.0;
 
-        // ✅ 1 query para costos promedio (evita N+1)
         $ids = collect($detalles)->pluck('insumo_id')->map(fn($v) => (int) $v)->unique()->values();
         $costos = Insumo::query()
             ->whereIn('id', $ids)
-            ->pluck('costo_promedio', 'id'); // [id => costo_promedio]
+            ->pluck('costo_promedio', 'id');
 
         foreach ($detalles as $d) {
             $insumoId = (int) $d['insumo_id'];
@@ -278,10 +270,6 @@ class SalidaController extends Controller
         return (float) $total;
     }
 
-    /**
-     * Stock seguro con lockForUpdate + validación de existencia.
-     * Usa columna `stock` en existencias.
-     */
     private function applyStockDelta(int $almacenId, array $detalles, string $mode): void
     {
         foreach ($detalles as $d) {

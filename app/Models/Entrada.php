@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Entrada extends Model
 {
@@ -29,6 +30,9 @@ class Entrada extends Model
         'total' => 'decimal:2',
     ];
 
+    // Si quieres que SIEMPRE venga el usuario creador:
+    protected $with = ['createdBy'];
+
     public function almacen()
     {
         return $this->belongsTo(Almacen::class);
@@ -44,8 +48,10 @@ class Entrada extends Model
         return $this->hasMany(EntradaDetalle::class);
     }
 
-    public function createdBy()
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+        // o si prefieres full-qualify:
+        // return $this->belongsTo(\App\Models\User::class, 'created_by');
     }
 }

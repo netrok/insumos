@@ -12,62 +12,60 @@ class AuditoriaMovController extends Controller
     {
         $q    = trim((string) $request->get('q', ''));
         $tipo = strtoupper(trim((string) $request->get('tipo', ''))); // ENT | SAL | ''
-        $from = $request->get('from'); // YYYY-MM-DD
-        $to   = $request->get('to');   // YYYY-MM-DD
+        $from = $request->get('from', now()->subDays(7)->toDateString());
+        $to   = $request->get('to', now()->toDateString());
 
-        // Subquery UNION (ENT + SAL) ya con joins para poder filtrar por texto
         $base = DB::query()->fromSub(function ($sub) {
 
-            $sub->selectRaw("
-                e.fecha as fecha,
-                'ENT' as tipo,
-                COALESCE(e.folio, e.id::text) as folio,
-                u.name as usuario,
-                i.nombre as insumo,
-                a.nombre as almacen,
-                d.cantidad as cantidad
-            ")
-            ->from('entradas as e')
-            ->join('entrada_detalles as d', 'd.entrada_id', '=', 'e.id')
-            ->leftJoin('users as u', 'u.id', '=', 'e.user_id')
-            ->leftJoin('insumos as i', 'i.id', '=', 'd.insumo_id')
-            ->leftJoin('almacenes as a', 'a.id', '=', 'e.almacen_id')
-
-            ->unionAll(
-                DB::table('salidas as s')
-                    ->join('salida_detalles as sd', 'sd.salida_id', '=', 's.id')
-                    ->leftJoin('users as u2', 'u2.id', '=', 's.user_id')
-                    ->leftJoin('insumos as i2', 'i2.id', '=', 'sd.insumo_id')
-                    ->leftJoin('almacenes as a2', 'a2.id', '=', 's.almacen_id')
-                    ->selectRaw("
-                        s.fecha as fecha,
-                        'SAL' as tipo,
-                        COALESCE(s.folio, s.id::text) as folio,
-                        u2.name as usuario,
-                        i2.nombre as insumo,
-                        a2.nombre as almacen,
-                        (sd.cantidad * -1) as cantidad
-                    ")
-            );
+            // ENTRADAS
+            $sub->from('entradas as e')
+                ->join('entrada_detalles as d', 'd.entrada_id', '=', 'e.id')
+                ->leftJoin('users as u', 'u.id', '=', 'e.created_by')
+                ->leftJoin('insumos as i', 'i.id', '=', 'd.insumo_id')
+                ->leftJoin('almacenes as a', 'a.id', '=', 'e.almacen_id')
+                ->selectRaw("
+                    e.fecha as fecha,
+                    e.created_at as created_at,
+                    'ENT' as tipo,
+                    COALESCE(e.folio, e.id::text) as folio,
+                    u.name as usuario,
+                    i.nombre as insumo,
+                    a.nombre as almacen,
+                    d.cantidad as cantidad
+                ")
+                ->unionAll(
+                    // SALIDAS (cantidad negativa)
+                    DB::table('salidas as s')
+                        ->join('salida_detalles as sd', 'sd.salida_id', '=', 's.id')
+                        ->leftJoin('users as u2', 'u2.id', '=', 's.created_by')
+                        ->leftJoin('insumos as i2', 'i2.id', '=', 'sd.insumo_id')
+                        ->leftJoin('almacenes as a2', 'a2.id', '=', 's.almacen_id')
+                        ->selectRaw("
+                            s.fecha as fecha,
+                            s.created_at as created_at,
+                            'SAL' as tipo,
+                            COALESCE(s.folio, s.id::text) as folio,
+                            u2.name as usuario,
+                            i2.nombre as insumo,
+                            a2.nombre as almacen,
+                            (sd.cantidad * -1) as cantidad
+                        ")
+                );
 
         }, 'm');
 
-        // Filtro tipo
+        // Tipo
         if (in_array($tipo, ['ENT', 'SAL'], true)) {
             $base->where('m.tipo', $tipo);
         } else {
-            $tipo = ''; // normaliza para la vista
+            $tipo = '';
         }
 
         // Fechas
-        if (!empty($from)) {
-            $base->whereDate('m.fecha', '>=', $from);
-        }
-        if (!empty($to)) {
-            $base->whereDate('m.fecha', '<=', $to);
-        }
+        if (!empty($from)) $base->whereDate('m.fecha', '>=', $from);
+        if (!empty($to))   $base->whereDate('m.fecha', '<=', $to);
 
-        // Búsqueda (PostgreSQL ILIKE) + escape de % _
+        // Búsqueda (ILIKE)
         if ($q !== '') {
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q) . '%';
 
@@ -80,14 +78,25 @@ class AuditoriaMovController extends Controller
             });
         }
 
-        // Orden + paginado
+        // KPIs (clonar antes de paginar/ordenar)
+        $kpiQ = clone $base;
+
+        $kpis = (array) (
+            $kpiQ->selectRaw("
+                COUNT(*)::int as movimientos,
+                COALESCE(SUM(CASE WHEN m.tipo='ENT' THEN m.cantidad ELSE 0 END), 0)::numeric as entradas,
+                COALESCE(SUM(CASE WHEN m.tipo='SAL' THEN m.cantidad ELSE 0 END), 0)::numeric as salidas,
+                COALESCE(SUM(m.cantidad), 0)::numeric as neto
+            ")->first() ?? []
+        );
+
         $items = $base
             ->orderByDesc('m.fecha')
-            ->orderByDesc('m.tipo')
+            ->orderByDesc('m.created_at')
             ->orderByDesc('m.folio')
             ->paginate(25)
             ->withQueryString();
 
-        return view('admin.auditoria.movimientos', compact('items', 'q', 'tipo', 'from', 'to'));
+        return view('admin.auditoria.movimientos', compact('items', 'q', 'tipo', 'from', 'to', 'kpis'));
     }
 }

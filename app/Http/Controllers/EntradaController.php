@@ -15,7 +15,7 @@ class EntradaController extends Controller
     public function index(Request $request)
     {
         $query = Entrada::query()
-            ->with(['almacen', 'proveedor'])
+            ->with(['almacen', 'proveedor', 'createdBy']) // 👈 para mostrar usuario si lo ocupas en index
             ->orderByDesc('fecha')
             ->orderByDesc('id');
 
@@ -28,11 +28,11 @@ class EntradaController extends Controller
         }
 
         if ($request->filled('desde')) {
-            $query->whereDate('fecha', '>=', $request->date('desde'));
+            $query->whereDate('fecha', '>=', $request->input('desde')); // date() a veces se pone exquisito
         }
 
         if ($request->filled('hasta')) {
-            $query->whereDate('fecha', '<=', $request->date('hasta'));
+            $query->whereDate('fecha', '<=', $request->input('hasta'));
         }
 
         $entradas = $query->paginate(15)->withQueryString();
@@ -58,7 +58,6 @@ class EntradaController extends Controller
 
         $entrada = DB::transaction(function () use ($data) {
 
-            // ✅ Consecutivo blindado (evita duplicados en concurrencia)
             $last = Entrada::query()
                 ->select('consecutivo')
                 ->whereNotNull('consecutivo')
@@ -68,7 +67,6 @@ class EntradaController extends Controller
 
             $next = ((int) ($last?->consecutivo ?? 0)) + 1;
 
-            // Folio corto: ENT-00000001
             $folio = 'ENT-' . str_pad((string) $next, 8, '0', STR_PAD_LEFT);
 
             $entrada = Entrada::create([
@@ -79,7 +77,7 @@ class EntradaController extends Controller
                 'proveedor_id' => $data['proveedor_id'] ?? null,
                 'tipo' => $data['tipo'],
                 'observaciones' => $data['observaciones'] ?? null,
-                'created_by' => auth()->id(),
+                'created_by' => auth()->id(), // ✅ aquí es donde debe ir
                 'total' => 0,
             ]);
 
@@ -130,7 +128,6 @@ class EntradaController extends Controller
         $entrada = DB::transaction(function () use ($entrada, $data) {
             $entrada->load(['detalles']);
 
-            // Revertir existencias del almacén anterior
             $this->applyStockDelta(
                 almacenId: (int) $entrada->almacen_id,
                 detalles: $entrada->detalles->map(fn ($d) => [
@@ -140,7 +137,6 @@ class EntradaController extends Controller
                 mode: 'decrement'
             );
 
-            // Actualizar encabezado (NO tocamos consecutivo/folio)
             $entrada->update([
                 'fecha' => $data['fecha'],
                 'almacen_id' => $data['almacen_id'],
@@ -150,10 +146,8 @@ class EntradaController extends Controller
                 'total' => 0,
             ]);
 
-            // Reemplazar detalles
             $entrada->detalles()->delete();
 
-            // Aplicar existencias nuevas
             $total = $this->persistDetallesAndStock(
                 entrada: $entrada,
                 almacenId: (int) $entrada->almacen_id,
@@ -259,17 +253,12 @@ class EntradaController extends Controller
         return (float) $total;
     }
 
-    /**
-     * PRO: Manejo de existencias con columna `stock` (no `cantidad`)
-     * Recomendado si existe unique(['almacen_id','insumo_id']) en la tabla existencias.
-     */
     private function applyStockDelta(int $almacenId, array $detalles, string $mode): void
     {
         foreach ($detalles as $d) {
             $insumoId = (int) $d['insumo_id'];
             $delta = (float) $d['cantidad'];
 
-            // Bloqueo para consistencia en concurrencia
             $existencia = Existencia::query()
                 ->where('almacen_id', $almacenId)
                 ->where('insumo_id', $insumoId)
