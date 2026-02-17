@@ -54,10 +54,14 @@ Route::middleware(['auth'])->group(function () {
     // Salidas
     Route::resource('salidas', SalidaController::class)->parameters(['salidas' => 'salida']);
 
-    // Reportes (index manda a Kardex)
-    Route::redirect('/reportes', '/reportes/kardex')->name('reportes.index');
-
+    /**
+     * REPORTES (generales) — auth
+     * /reportes/*
+     */
     Route::prefix('reportes')->name('reportes.')->group(function () {
+
+        // index
+        Route::get('/', fn () => redirect()->route('reportes.kardex'))->name('index');
 
         // Kardex
         Route::get('/kardex',      [ReporteController::class, 'kardex'])->name('kardex');
@@ -77,12 +81,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/proveedores.pdf',  [ReporteProveedorController::class, 'listaPdf'])->name('proveedores.pdf');
 
         // Proveedor específico
-        Route::get('/proveedores/{proveedor}.xlsx', [ReporteProveedorController::class, 'proveedorXlsx'])->name('proveedores.proveedor.xlsx');
-        Route::get('/proveedores/{proveedor}.pdf',  [ReporteProveedorController::class, 'proveedorPdf'])->name('proveedores.proveedor.pdf');
+        Route::get('/proveedores/{proveedor}.xlsx', [ReporteProveedorController::class, 'proveedorXlsx'])
+            ->name('proveedores.proveedor.xlsx');
+        Route::get('/proveedores/{proveedor}.pdf',  [ReporteProveedorController::class, 'proveedorPdf'])
+            ->name('proveedores.proveedor.pdf');
     });
 
     /**
-     * ADMIN — protegido (rol "ADMIN")
+     * ADMIN — protegido (rol ADMIN)
+     * /admin/*
      */
     Route::prefix('admin')
         ->name('admin.')
@@ -103,8 +110,18 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/parametros', [ParametroController::class, 'index'])->name('parametros.index');
             Route::put('/parametros', [ParametroController::class, 'update'])->name('parametros.update');
 
-            // Auditoría
-            Route::get('/auditoria/movimientos', [AuditoriaMovController::class, 'index'])->name('auditoria.movimientos');
+            // Auditoría UI
+            Route::get('/auditoria/movimientos', [AuditoriaMovController::class, 'index'])
+                ->name('auditoria.movimientos');
+
+            // ADMIN REPORTES (solo admin)
+            Route::prefix('reportes')->name('reportes.')->group(function () {
+                Route::get('/auditoria.xlsx', [ReporteController::class, 'auditoriaXlsx'])
+                    ->name('auditoria.xlsx');
+
+                Route::get('/auditoria.pdf', [ReporteController::class, 'auditoriaPdf'])
+                    ->name('auditoria.pdf');
+            });
 
             // Usuarios (CRUD)
             Route::resource('usuarios', UserController::class)

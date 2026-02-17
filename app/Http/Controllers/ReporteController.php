@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AuditoriaMovimientosExport;
 use App\Exports\EntradasExport;
 use App\Exports\KardexExport;
 use App\Exports\SalidasExport;
@@ -228,6 +229,46 @@ class ReporteController extends Controller
     }
 
     /* =========================
+       AUDITORÍA (XLSX/PDF) — ADMIN
+       ========================= */
+
+    public function auditoriaXlsx(Request $request)
+    {
+        $filters = $this->validateAuditoriaFilters($request);
+
+        return Excel::download(
+            new AuditoriaMovimientosExport($filters),
+            'auditoria_movimientos_' . now()->format('Ymd_His') . '.xlsx'
+        );
+    }
+
+    public function auditoriaPdf(Request $request)
+    {
+        $filters = $this->validateAuditoriaFilters($request);
+
+        // Orden estable y reproducible (no depende del folio texto)
+        $rows = $this->auditoriaQuery($filters)->get();
+
+        $totalAcciones = $rows->count();
+        $totalEntradas = (float) $rows->where('tipo', 'ENT')->sum('cantidad'); // positivo
+        $totalSalidas  = (float) abs($rows->where('tipo', 'SAL')->sum('cantidad')); // SAL viene negativo
+        $neto          = (float) $rows->sum('cantidad'); // ENT + SAL (SAL negativo)
+
+        $labels = [
+            'q'    => (($filters['q'] ?? '') !== '') ? $filters['q'] : '—',
+            'tipo' => (($filters['tipo'] ?? '') !== '') ? $filters['tipo'] : 'Todos',
+            'from' => $filters['from'] ?? '—',
+            'to'   => $filters['to'] ?? '—',
+        ];
+
+        $pdf = Pdf::loadView('reportes.auditoria_pdf', compact(
+            'rows','labels','totalAcciones','totalEntradas','totalSalidas','neto'
+        ))->setPaper('a4', 'landscape');
+
+        return $pdf->download('auditoria_movimientos_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    /* =========================
        VALIDACIONES
        ========================= */
 
@@ -308,6 +349,29 @@ class ReporteController extends Controller
         ];
     }
 
+    private function validateAuditoriaFilters(Request $request): array
+    {
+        $data = $request->validate([
+            'q'    => ['nullable', 'string', 'max:100'],
+            'tipo' => ['nullable', 'in:ENT,SAL'],
+            'from' => ['nullable', 'date'],
+            'to'   => ['nullable', 'date'],
+        ]);
+
+        $from = (string) ($data['from'] ?? now()->subDays(7)->toDateString());
+        $to   = (string) ($data['to'] ?? now()->toDateString());
+
+        $q = isset($data['q']) ? trim((string) $data['q']) : '';
+        $tipo = isset($data['tipo']) ? strtoupper(trim((string) $data['tipo'])) : '';
+
+        return [
+            'q'    => $q,
+            'tipo' => $tipo,
+            'from' => $from,
+            'to'   => $to,
+        ];
+    }
+
     /* =========================
        QUERIES LISTADO
        ========================= */
@@ -365,7 +429,7 @@ class ReporteController extends Controller
     }
 
     /* =========================
-       TOTALES (sin GROUP BY)
+       TOTALES
        ========================= */
 
     private function entradasTotal(array $f): float
@@ -537,5 +601,80 @@ class ReporteController extends Controller
             ->fromSub($sub, 't')
             ->selectRaw("COALESCE(SUM(cantidad),0) as s")
             ->value('s');
+    }
+
+    /* =========================
+       AUDITORÍA: Query base (ÚNICO) — CORREGIDO
+       ========================= */
+
+    private function auditoriaQuery(array $f)
+    {
+        $q    = trim((string) ($f['q'] ?? ''));
+        $tipo = strtoupper(trim((string) ($f['tipo'] ?? '')));
+        $from = (string) ($f['from'] ?? now()->subDays(7)->toDateString());
+        $to   = (string) ($f['to'] ?? now()->toDateString());
+
+        $base = DB::query()->fromSub(function ($sub) {
+
+            $ent = DB::table('entradas as e')
+                ->join('entrada_detalles as d', 'd.entrada_id', '=', 'e.id')
+                ->leftJoin('users as u', 'u.id', '=', 'e.created_by')
+                ->leftJoin('insumos as i', 'i.id', '=', 'd.insumo_id')
+                ->leftJoin('almacenes as a', 'a.id', '=', 'e.almacen_id')
+                ->selectRaw("
+                    e.id as ref_id,
+                    e.fecha::date as fecha,
+                    'ENT' as tipo,
+                    COALESCE(e.folio, e.id::text) as folio,
+                    COALESCE(u.name, '—') as usuario,
+                    COALESCE(i.nombre, '—') as insumo,
+                    COALESCE(a.nombre, '—') as almacen,
+                    d.cantidad::numeric(14,2) as cantidad
+                ");
+
+            $sal = DB::table('salidas as s')
+                ->join('salida_detalles as sd', 'sd.salida_id', '=', 's.id')
+                ->leftJoin('users as u2', 'u2.id', '=', 's.created_by')
+                ->leftJoin('insumos as i2', 'i2.id', '=', 'sd.insumo_id')
+                ->leftJoin('almacenes as a2', 'a2.id', '=', 's.almacen_id')
+                ->selectRaw("
+                    s.id as ref_id,
+                    s.fecha::date as fecha,
+                    'SAL' as tipo,
+                    COALESCE(s.folio, s.id::text) as folio,
+                    COALESCE(u2.name, '—') as usuario,
+                    COALESCE(i2.nombre, '—') as insumo,
+                    COALESCE(a2.nombre, '—') as almacen,
+                    (sd.cantidad * -1)::numeric(14,2) as cantidad
+                ");
+
+            $sub->fromSub($ent->unionAll($sal), 'm');
+
+        }, 'm');
+
+        if (in_array($tipo, ['ENT', 'SAL'], true)) {
+            $base->where('m.tipo', $tipo);
+        }
+
+        $base->whereDate('m.fecha', '>=', $from)
+             ->whereDate('m.fecha', '<=', $to);
+
+        if ($q !== '') {
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q);
+            $like = '%' . $escaped . '%';
+
+            $base->where(function ($w) use ($like) {
+                $w->where('m.folio', 'ilike', $like)
+                  ->orWhere('m.usuario', 'ilike', $like)
+                  ->orWhere('m.insumo', 'ilike', $like)
+                  ->orWhere('m.almacen', 'ilike', $like)
+                  ->orWhere('m.tipo', 'ilike', $like);
+            });
+        }
+
+        return $base
+            ->orderByDesc('m.fecha')
+            ->orderByDesc('m.tipo')
+            ->orderByDesc('m.ref_id');
     }
 }

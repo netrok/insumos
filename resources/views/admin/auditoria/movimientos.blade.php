@@ -6,16 +6,39 @@
 @section('page_subtitle', 'Últimos movimientos de entradas y salidas.')
 
 @section('page_actions')
-  <div class="flex flex-wrap gap-2">
-    <x-btn variant="outline" href="{{ route('admin.index') }}">Volver</x-btn>
+  <div class="flex flex-wrap gap-2 items-center justify-end">
+
+    <a href="{{ route('admin.index') }}"
+       class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
+      <span>Volver</span>
+    </a>
+
+    @if(Route::has('admin.reportes.auditoria.xlsx'))
+      <a href="{{ route('admin.reportes.auditoria.xlsx', request()->query()) }}"
+         class="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100">
+        <span>Reporte XLSX</span>
+      </a>
+    @endif
+
+    @if(Route::has('admin.reportes.auditoria.pdf'))
+      <a href="{{ route('admin.reportes.auditoria.pdf', request()->query()) }}"
+         class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-100">
+        <span>Reporte PDF</span>
+      </a>
+    @endif
+
   </div>
 @endsection
 
 @section('content')
   @php
-    $k_mov = (int) data_get($kpis, 'movimientos', 0);
+    $k_acc = (int) ($totalAcciones ?? data_get($kpis, 'acciones', 0));
     $k_ent = (float) data_get($kpis, 'entradas', 0);
-    $k_sal = (float) data_get($kpis, 'salidas', 0);
+
+    // SAL viene negativa: mostrar KPI en positivo
+    $k_sal_raw = (float) data_get($kpis, 'salidas', 0);
+    $k_sal = abs($k_sal_raw);
+
     $k_net = (float) data_get($kpis, 'neto', 0);
   @endphp
 
@@ -24,8 +47,8 @@
     {{-- KPIs --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <x-card class="p-5">
-        <div class="text-xs font-semibold tracking-wider uppercase text-slate-500">Movimientos</div>
-        <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ number_format($k_mov) }}</div>
+        <div class="text-xs font-semibold tracking-wider uppercase text-slate-500">Cantidad acciones</div>
+        <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ number_format($k_acc) }}</div>
         <div class="mt-1 text-xs text-slate-500">En el rango seleccionado</div>
       </x-card>
 
@@ -38,7 +61,7 @@
       <x-card class="p-5">
         <div class="text-xs font-semibold tracking-wider uppercase text-slate-500">Salidas</div>
         <div class="mt-2 text-2xl font-extrabold text-rose-700">{{ number_format($k_sal, 2) }}</div>
-        <div class="mt-1 text-xs text-slate-500">Suma negativa</div>
+        <div class="mt-1 text-xs text-slate-500">Suma en positivo</div>
       </x-card>
 
       <x-card class="p-5">
@@ -162,11 +185,7 @@
                 </td>
 
                 <td class="py-3 px-4 font-semibold text-slate-900">{{ data_get($m, 'folio', '—') }}</td>
-
-                <td class="py-3 px-4 text-slate-700">
-                  {{ data_get($m, 'usuario') ?: '—' }}
-                </td>
-
+                <td class="py-3 px-4 text-slate-700">{{ data_get($m, 'usuario') ?: '—' }}</td>
                 <td class="py-3 px-4 text-slate-700">{{ data_get($m, 'insumo', '—') }}</td>
                 <td class="py-3 px-4 text-slate-700">{{ data_get($m, 'almacen', '—') }}</td>
 
@@ -176,11 +195,9 @@
 
                 <td class="py-3 px-4">
                   @if($docTipo === 'entradas' && $docId)
-                    <a class="text-sm font-bold text-slate-900 hover:underline"
-                       href="{{ route('entradas.show', $docId) }}">Ver</a>
+                    <a class="text-sm font-bold text-slate-900 hover:underline" href="{{ route('entradas.show', $docId) }}">Ver</a>
                   @elseif($docTipo === 'salidas' && $docId)
-                    <a class="text-sm font-bold text-slate-900 hover:underline"
-                       href="{{ route('salidas.show', $docId) }}">Ver</a>
+                    <a class="text-sm font-bold text-slate-900 hover:underline" href="{{ route('salidas.show', $docId) }}">Ver</a>
                   @else
                     —
                   @endif
@@ -204,29 +221,3 @@
 
   </div>
 @endsection
-
-<th class="py-3 px-4 font-semibold text-right">Cantidad</th>
-<th class="py-3 px-4 font-semibold">Acciones</th>
-
-<td class="py-3 px-4 text-right font-extrabold {{ $cantidad < 0 ? 'text-rose-700' : 'text-slate-900' }}">
-  {{ number_format($cantidad, 2) }}
-</td>
-
-<td class="py-3 px-4">
-  @php
-    $docTipo = (string) data_get($m, 'doc_tipo');
-    $docId   = (int) data_get($m, 'doc_id');
-  @endphp
-
-  @if($docTipo === 'entradas' && $docId)
-    <a class="text-sm font-bold text-slate-900 hover:underline"
-       href="{{ route('entradas.show', $docId) }}">Ver</a>
-  @elseif($docTipo === 'salidas' && $docId)
-    <a class="text-sm font-bold text-slate-900 hover:underline"
-       href="{{ route('salidas.show', $docId) }}">Ver</a>
-  @else
-    —
-  @endif
-</td>
-
-<td class="py-10 px-4 text-center text-slate-600" colspan="8">

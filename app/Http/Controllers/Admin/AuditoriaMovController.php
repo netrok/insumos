@@ -12,8 +12,8 @@ class AuditoriaMovController extends Controller
     {
         $q    = trim((string) $request->get('q', ''));
         $tipo = strtoupper(trim((string) $request->get('tipo', ''))); // ENT | SAL | ''
-        $from = $request->get('from', now()->subDays(7)->toDateString());
-        $to   = $request->get('to', now()->toDateString());
+        $from = (string) $request->get('from', now()->subDays(7)->toDateString());
+        $to   = (string) $request->get('to', now()->toDateString());
 
         // Subquery UNION (ENT + SAL)
         $base = DB::query()->fromSub(function ($sub) {
@@ -27,7 +27,6 @@ class AuditoriaMovController extends Controller
                 ->selectRaw("
                     e.id as doc_id,
                     'entradas' as doc_tipo,
-
                     e.fecha as fecha,
                     e.created_at as created_at,
                     'ENT' as tipo,
@@ -47,7 +46,6 @@ class AuditoriaMovController extends Controller
                         ->selectRaw("
                             s.id as doc_id,
                             'salidas' as doc_tipo,
-
                             s.fecha as fecha,
                             s.created_at as created_at,
                             'SAL' as tipo,
@@ -61,18 +59,18 @@ class AuditoriaMovController extends Controller
 
         }, 'm');
 
-        // Tipo
-        if (in_array($tipo, ['ENT', 'SAL'], true)) {
-            $base->where('m.tipo', $tipo);
-        } else {
+        // Tipo (normaliza)
+        if (!in_array($tipo, ['ENT', 'SAL'], true)) {
             $tipo = '';
+        } else {
+            $base->where('m.tipo', $tipo);
         }
 
-        // Fechas
-        if (!empty($from)) {
+        // Fechas (siempre acotamos)
+        if ($from !== '') {
             $base->whereDate('m.fecha', '>=', $from);
         }
-        if (!empty($to)) {
+        if ($to !== '') {
             $base->whereDate('m.fecha', '<=', $to);
         }
 
@@ -92,14 +90,23 @@ class AuditoriaMovController extends Controller
         // KPIs (clonar antes de ordenar/paginar)
         $kpiQ = clone $base;
 
-        $kpis = (array) (
-            $kpiQ->selectRaw("
-                COUNT(*)::int as movimientos,
+        $kpiRow = $kpiQ->selectRaw("
+                COUNT(*)::int as acciones,
                 COALESCE(SUM(CASE WHEN m.tipo='ENT' THEN m.cantidad ELSE 0 END), 0)::numeric as entradas,
                 COALESCE(SUM(CASE WHEN m.tipo='SAL' THEN m.cantidad ELSE 0 END), 0)::numeric as salidas,
                 COALESCE(SUM(m.cantidad), 0)::numeric as neto
-            ")->first() ?? []
-        );
+            ")->first();
+
+        // Asegura array estable para la vista (aunque first() sea null)
+        $kpis = [
+            'acciones' => (int) data_get($kpiRow, 'acciones', 0),
+            'entradas' => (float) data_get($kpiRow, 'entradas', 0),
+            'salidas'  => (float) data_get($kpiRow, 'salidas', 0),
+            'neto'     => (float) data_get($kpiRow, 'neto', 0),
+        ];
+
+        // ✅ Alias claro para la vista (Cantidad Acciones)
+        $totalAcciones = $kpis['acciones'];
 
         // Orden + paginado
         $items = $base
@@ -109,6 +116,14 @@ class AuditoriaMovController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        return view('admin.auditoria.movimientos', compact('items', 'q', 'tipo', 'from', 'to', 'kpis'));
+        return view('admin.auditoria.movimientos', compact(
+            'items',
+            'q',
+            'tipo',
+            'from',
+            'to',
+            'kpis',
+            'totalAcciones'
+        ));
     }
 }
