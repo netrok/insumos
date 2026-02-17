@@ -8,10 +8,21 @@
 @endsection
 
 @section('page_actions')
-  <x-btn href="{{ route('salidas.create') }}">
-    <x-icon name="plus" class="h-4 w-4" />
-    Nueva salida
-  </x-btn>
+  <div class="flex items-center gap-2">
+    <x-btn href="{{ route('salidas.create') }}">
+      <x-icon name="plus" class="h-4 w-4" />
+      Nueva salida
+    </x-btn>
+
+    {{-- Reportes --}}
+    <x-btn variant="secondary" href="{{ route('reportes.salidas.pdf', request()->query()) }}">
+      PDF
+    </x-btn>
+
+    <x-btn variant="secondary" href="{{ route('reportes.salidas.xlsx', request()->query()) }}">
+      Excel
+    </x-btn>
+  </div>
 @endsection
 
 @section('content')
@@ -19,37 +30,49 @@
 
     {{-- Toolbar / filtros --}}
     <div class="p-4 border-b bg-white">
-      <form method="GET" action="{{ route('salidas.index') }}" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+      <form method="GET"
+            action="{{ route('salidas.index') }}"
+            class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
 
         <div class="sm:col-span-3">
           <label class="text-xs font-semibold text-gray-600">Almacén</label>
-          <select name="almacen_id" class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
+          <select name="almacen_id"
+                  class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
             <option value="">Todos</option>
             @foreach($almacenes as $a)
-              <option value="{{ $a->id }}" @selected(request('almacen_id') == $a->id)>{{ $a->nombre }}</option>
+              <option value="{{ $a->id }}" @selected(request('almacen_id') == $a->id)>
+                {{ $a->nombre }}
+              </option>
             @endforeach
           </select>
         </div>
 
         <div class="sm:col-span-3">
           <label class="text-xs font-semibold text-gray-600">Tipo</label>
-          <select name="tipo" class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
+          <select name="tipo"
+                  class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
             <option value="">Todos</option>
             @foreach(['consumo','merma','ajuste','traspaso'] as $t)
-              <option value="{{ $t }}" @selected(request('tipo') === $t)>{{ strtoupper($t) }}</option>
+              <option value="{{ $t }}" @selected(request('tipo') === $t)>
+                {{ strtoupper($t) }}
+              </option>
             @endforeach
           </select>
         </div>
 
         <div class="sm:col-span-2">
           <label class="text-xs font-semibold text-gray-600">Desde</label>
-          <input type="date" name="desde" value="{{ request('desde') }}"
+          <input type="date"
+                 name="desde"
+                 value="{{ request('desde') }}"
                  class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
         </div>
 
         <div class="sm:col-span-2">
           <label class="text-xs font-semibold text-gray-600">Hasta</label>
-          <input type="date" name="hasta" value="{{ request('hasta') }}"
+          <input type="date"
+                 name="hasta"
+                 value="{{ request('hasta') }}"
                  class="mt-1 w-full rounded-xl border-gray-300 focus:border-gv-black focus:ring-gv-black">
         </div>
 
@@ -59,7 +82,12 @@
             Filtrar
           </x-btn>
 
-          @if(request()->filled('almacen_id') || request()->filled('tipo') || request()->filled('desde') || request()->filled('hasta'))
+          @if(
+            request()->filled('almacen_id') ||
+            request()->filled('tipo') ||
+            request()->filled('desde') ||
+            request()->filled('hasta')
+          )
             <x-btn variant="secondary" href="{{ route('salidas.index') }}" class="w-full">
               <x-icon name="x" class="h-4 w-4" />
               Limpiar
@@ -111,15 +139,19 @@
 
               <td class="px-4 py-3">
                 <div class="flex justify-end gap-2">
+                  {{-- Ver --}}
                   <x-btn variant="ghost" iconOnly href="{{ route('salidas.show', $s) }}" title="Ver">
                     <x-icon name="eye" class="h-4 w-4" />
                   </x-btn>
 
+                  {{-- Editar --}}
                   <x-btn variant="outline" iconOnly href="{{ route('salidas.edit', $s) }}" title="Editar">
                     <x-icon name="edit" class="h-4 w-4" />
                   </x-btn>
 
-                  <form method="POST" action="{{ route('salidas.destroy', $s) }}"
+                  {{-- Eliminar --}}
+                  <form method="POST"
+                        action="{{ route('salidas.destroy', $s) }}"
                         onsubmit="return confirm('¿Eliminar salida {{ $s->folio }}? Esto regresará existencias.');"
                         class="inline">
                     @csrf
@@ -144,7 +176,7 @@
     </div>
 
     <div class="p-4 border-t">
-      {{ $salidas->links() }}
+      {{ $salidas->withQueryString()->links() }}
     </div>
 
   </x-card>

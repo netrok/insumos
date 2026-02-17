@@ -204,3 +204,29 @@
 
   </div>
 @endsection
+
+<th class="py-3 px-4 font-semibold text-right">Cantidad</th>
+<th class="py-3 px-4 font-semibold">Acciones</th>
+
+<td class="py-3 px-4 text-right font-extrabold {{ $cantidad < 0 ? 'text-rose-700' : 'text-slate-900' }}">
+  {{ number_format($cantidad, 2) }}
+</td>
+
+<td class="py-3 px-4">
+  @php
+    $docTipo = (string) data_get($m, 'doc_tipo');
+    $docId   = (int) data_get($m, 'doc_id');
+  @endphp
+
+  @if($docTipo === 'entradas' && $docId)
+    <a class="text-sm font-bold text-slate-900 hover:underline"
+       href="{{ route('entradas.show', $docId) }}">Ver</a>
+  @elseif($docTipo === 'salidas' && $docId)
+    <a class="text-sm font-bold text-slate-900 hover:underline"
+       href="{{ route('salidas.show', $docId) }}">Ver</a>
+  @else
+    —
+  @endif
+</td>
+
+<td class="py-10 px-4 text-center text-slate-600" colspan="8">

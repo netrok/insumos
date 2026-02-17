@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\EntradasExport;
 use App\Exports\KardexExport;
+use App\Exports\SalidasExport;
 use App\Models\Almacen;
 use App\Models\Insumo;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,14 +14,17 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteController extends Controller
 {
+    /* =========================
+       KÁRDEX
+       ========================= */
+
     public function kardex(Request $request)
     {
         $filters = $this->validateKardexFilters($request);
 
-        // Paginado para web (orden desc "reciente primero")
         $movs = $this->kardexQuery($filters)
             ->orderByDesc('fecha')
-            ->orderByDesc('tipo') // ENT arriba de SAL (opcional)
+            ->orderByDesc('tipo')
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
@@ -30,7 +35,6 @@ class ReporteController extends Controller
         $totals       = $this->kardexTotals($filters);
         $saldoInicial = $this->kardexSaldoInicial($filters);
 
-        // ✅ saldo acumulado por renglón (solo si hay insumo seleccionado)
         $showSaldo = !empty($filters['insumo_id']);
 
         if ($showSaldo) {
@@ -38,14 +42,11 @@ class ReporteController extends Controller
             $perPage = (int) $movs->perPage();
             $offset  = max(0, ($page - 1) * $perPage);
 
-            // Para que el saldo sea correcto aunque pagines,
-            // sumamos el "cantidad" de renglones ANTERIORES en orden contable (asc).
             $sumBefore = $this->kardexSumBefore($filters, $offset);
-
-            $running = (float) $saldoInicial + (float) $sumBefore;
+            $running   = (float) $saldoInicial + (float) $sumBefore;
 
             foreach ($movs as $m) {
-                $running += (float) $m->cantidad; // SAL viene negativo
+                $running += (float) $m->cantidad;
                 $m->saldo = $running;
             }
         }
@@ -65,20 +66,18 @@ class ReporteController extends Controller
     {
         $filters = $this->validateKardexFilters($request);
 
-        $almacenMap = Almacen::orderBy('nombre')
-            ->pluck('nombre', 'id')
-            ->toArray();
+        $almacenMap = Almacen::orderBy('nombre')->pluck('nombre', 'id')->toArray();
 
-        $name = 'kardex_' . now()->format('Ymd_His') . '.xlsx';
-
-        return Excel::download(new KardexExport($filters, $almacenMap), $name);
+        return Excel::download(
+            new KardexExport($filters, $almacenMap),
+            'kardex_' . now()->format('Ymd_His') . '.xlsx'
+        );
     }
 
     public function kardexPdf(Request $request)
     {
         $filters = $this->validateKardexFilters($request);
 
-        // Catálogos (labels + map)
         $almacenes = Almacen::orderBy('nombre')->get(['id', 'nombre']);
         $insumos   = Insumo::orderBy('nombre')->get(['id', 'sku', 'nombre']);
 
@@ -98,37 +97,33 @@ class ReporteController extends Controller
         $totals       = $this->kardexTotals($filters);
         $saldoInicial = $this->kardexSaldoInicial($filters);
 
-        // PDF = sin paginar, con orden contable (asc)
         $rows = $this->kardexOrder($this->kardexQuery($filters))->get();
 
-        // Enriquecer almacén (sin joins pesados dentro del union)
         $almMap = $almacenes->keyBy('id');
         foreach ($rows as $r) {
             $r->almacen_nombre = $almMap->get((int) $r->almacen_id)->nombre ?? '—';
         }
 
-        // ✅ saldo acumulado por renglón solo si hay insumo
         $showSaldo = !empty($filters['insumo_id']);
 
         if ($showSaldo) {
-            // Insertamos “APERTURA” como primer renglón (visual + auditoría)
             $apertura = (object) [
-                'tipo'          => 'INI',
-                'id'            => 0,
-                'fecha'         => $filters['desde'],
-                'folio'         => 'APERTURA',
-                'almacen_id'    => $filters['almacen_id'] ?? null,
-                'almacen_nombre'=> !empty($filters['almacen_id'])
+                'tipo'           => 'INI',
+                'id'             => 0,
+                'fecha'          => $filters['desde'],
+                'folio'          => 'APERTURA',
+                'almacen_id'     => $filters['almacen_id'] ?? null,
+                'almacen_nombre' => !empty($filters['almacen_id'])
                     ? ($almMap->get((int) $filters['almacen_id'])->nombre ?? '—')
                     : '—',
-                'insumo_id'     => $filters['insumo_id'],
-                'sku'           => '',
-                'insumo_nombre' => 'Saldo inicial',
-                'tercero'       => '—',
-                'cantidad'      => 0,
-                'costo_unitario'=> 0,
-                'subtotal'      => 0,
-                'saldo'         => (float) $saldoInicial,
+                'insumo_id'      => $filters['insumo_id'],
+                'sku'            => '',
+                'insumo_nombre'  => 'Saldo inicial',
+                'tercero'        => '—',
+                'cantidad'       => 0,
+                'costo_unitario' => 0,
+                'subtotal'       => 0,
+                'saldo'          => (float) $saldoInicial,
             ];
 
             $rows = $rows->prepend($apertura);
@@ -136,7 +131,7 @@ class ReporteController extends Controller
             $running = (float) $saldoInicial;
             foreach ($rows as $r) {
                 if (($r->tipo ?? '') !== 'INI') {
-                    $running += (float) $r->cantidad; // SAL ya viene negativo
+                    $running += (float) $r->cantidad;
                 }
                 $r->saldo = $running;
             }
@@ -157,10 +152,84 @@ class ReporteController extends Controller
             'showSaldo'    => $showSaldo,
         ])->setPaper('a4', 'landscape');
 
-        $name = 'kardex_' . now()->format('Ymd_His') . '.pdf';
-
-        return $pdf->download($name);
+        return $pdf->download('kardex_' . now()->format('Ymd_His') . '.pdf');
     }
+
+    /* =========================
+       ENTRADAS (PDF/XLSX)
+       ========================= */
+
+    public function entradasPdf(Request $request)
+    {
+        $filters = $this->validateEntradasFilters($request);
+
+        $rows = $this->entradasQuery($filters)->get();
+        $totalMonto = $this->entradasTotal($filters);
+
+        $labels = [
+            'almacen'   => $this->almacenLabel($filters['almacen_id']),
+            'proveedor' => $this->proveedorLabel($filters['proveedor_id']),
+        ];
+
+        $pdf = Pdf::loadView('reportes.entradas_pdf', [
+            'rows'       => $rows,
+            'filters'    => $filters,
+            'labels'     => $labels,
+            'totalMonto' => $totalMonto,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('entradas_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    public function entradasXlsx(Request $request)
+    {
+        $filters = $this->validateEntradasFilters($request);
+
+        return Excel::download(
+            new EntradasExport($filters),
+            'entradas_' . now()->format('Ymd_His') . '.xlsx'
+        );
+    }
+
+    /* =========================
+       SALIDAS (PDF/XLSX)
+       ========================= */
+
+    public function salidasPdf(Request $request)
+    {
+        $filters = $this->validateSalidasFilters($request);
+
+        $rows = $this->salidasQuery($filters)->get();
+        $totalMonto = $this->salidasTotal($filters);
+
+        $labels = [
+            'almacen' => $this->almacenLabel($filters['almacen_id']),
+            'tipo'    => $filters['tipo'] ?: 'Todos',
+        ];
+
+        $pdf = Pdf::loadView('reportes.salidas_pdf', [
+            'rows'       => $rows,
+            'filters'    => $filters,
+            'labels'     => $labels,
+            'totalMonto' => $totalMonto,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('salidas_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    public function salidasXlsx(Request $request)
+    {
+        $filters = $this->validateSalidasFilters($request);
+
+        return Excel::download(
+            new SalidasExport($filters),
+            'salidas_' . now()->format('Ymd_His') . '.xlsx'
+        );
+    }
+
+    /* =========================
+       VALIDACIONES
+       ========================= */
 
     private function validateKardexFilters(Request $request): array
     {
@@ -173,7 +242,6 @@ class ReporteController extends Controller
             'q'          => ['nullable', 'string', 'max:100'],
         ]);
 
-        // defaults conservadores: último mes
         $desde = $data['desde'] ?? now()->subDays(30)->toDateString();
         $hasta = $data['hasta'] ?? now()->toDateString();
 
@@ -190,14 +258,174 @@ class ReporteController extends Controller
         ];
     }
 
-    /**
-     * Builder con UNION ALL de entradas+salidas.
-     * ENT: cantidad/subtotal positivos
-     * SAL: cantidad/subtotal negativos (para saldo fácil)
-     */
+    private function validateEntradasFilters(Request $request): array
+    {
+        $data = $request->validate([
+            'almacen_id'   => ['nullable', 'integer', 'exists:almacenes,id'],
+            'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
+            'desde'        => ['nullable', 'date'],
+            'hasta'        => ['nullable', 'date'],
+            'q'            => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $desde = $data['desde'] ?? now()->subDays(30)->toDateString();
+        $hasta = $data['hasta'] ?? now()->toDateString();
+
+        $q = isset($data['q']) ? trim((string) $data['q']) : null;
+        if ($q === '') $q = null;
+
+        return [
+            'almacen_id'   => $data['almacen_id'] ?? null,
+            'proveedor_id' => $data['proveedor_id'] ?? null,
+            'desde'        => $desde,
+            'hasta'        => $hasta,
+            'q'            => $q,
+        ];
+    }
+
+    private function validateSalidasFilters(Request $request): array
+    {
+        $data = $request->validate([
+            'almacen_id' => ['nullable', 'integer', 'exists:almacenes,id'],
+            'tipo'       => ['nullable', 'in:consumo,merma,ajuste,traspaso'],
+            'desde'      => ['nullable', 'date'],
+            'hasta'      => ['nullable', 'date'],
+            'q'          => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $desde = $data['desde'] ?? now()->subDays(30)->toDateString();
+        $hasta = $data['hasta'] ?? now()->toDateString();
+
+        $q = isset($data['q']) ? trim((string) $data['q']) : null;
+        if ($q === '') $q = null;
+
+        return [
+            'almacen_id' => $data['almacen_id'] ?? null,
+            'tipo'       => $data['tipo'] ?? null,
+            'desde'      => $desde,
+            'hasta'      => $hasta,
+            'q'          => $q,
+        ];
+    }
+
+    /* =========================
+       QUERIES LISTADO
+       ========================= */
+
+    private function entradasQuery(array $f)
+    {
+        $q = DB::table('entradas as e')
+            ->leftJoin('almacenes as a', 'a.id', '=', 'e.almacen_id')
+            ->leftJoin('proveedores as p', 'p.id', '=', 'e.proveedor_id')
+            ->selectRaw("
+                e.id, e.folio, e.fecha::date as fecha,
+                COALESCE(a.nombre,'—') as almacen,
+                COALESCE(p.nombre,'—') as proveedor,
+                COALESCE(e.tipo,'—') as tipo,
+                COALESCE(e.total,0)::numeric(14,2) as total
+            ");
+
+        if (!empty($f['almacen_id']))   $q->where('e.almacen_id', (int) $f['almacen_id']);
+        if (!empty($f['proveedor_id'])) $q->where('e.proveedor_id', (int) $f['proveedor_id']);
+
+        $q->whereDate('e.fecha', '>=', $f['desde'])
+          ->whereDate('e.fecha', '<=', $f['hasta']);
+
+        if (!empty($f['q'])) {
+            $term = mb_strtolower($f['q']);
+            $q->whereRaw('LOWER(e.folio) LIKE ?', ["%{$term}%"]);
+        }
+
+        return $q->orderByDesc('e.fecha')->orderByDesc('e.id');
+    }
+
+    private function salidasQuery(array $f)
+    {
+        $q = DB::table('salidas as s')
+            ->leftJoin('almacenes as a', 'a.id', '=', 's.almacen_id')
+            ->selectRaw("
+                s.id, s.folio, s.fecha::date as fecha,
+                COALESCE(a.nombre,'—') as almacen,
+                COALESCE(s.tipo,'—') as tipo,
+                COALESCE(s.total,0)::numeric(14,2) as total
+            ");
+
+        if (!empty($f['almacen_id'])) $q->where('s.almacen_id', (int) $f['almacen_id']);
+        if (!empty($f['tipo']))      $q->where('s.tipo', $f['tipo']);
+
+        $q->whereDate('s.fecha', '>=', $f['desde'])
+          ->whereDate('s.fecha', '<=', $f['hasta']);
+
+        if (!empty($f['q'])) {
+            $term = mb_strtolower($f['q']);
+            $q->whereRaw('LOWER(s.folio) LIKE ?', ["%{$term}%"]);
+        }
+
+        return $q->orderByDesc('s.fecha')->orderByDesc('s.id');
+    }
+
+    /* =========================
+       TOTALES (sin GROUP BY)
+       ========================= */
+
+    private function entradasTotal(array $f): float
+    {
+        $q = DB::table('entradas as e');
+
+        if (!empty($f['almacen_id']))   $q->where('e.almacen_id', (int) $f['almacen_id']);
+        if (!empty($f['proveedor_id'])) $q->where('e.proveedor_id', (int) $f['proveedor_id']);
+
+        $q->whereDate('e.fecha', '>=', $f['desde'])
+          ->whereDate('e.fecha', '<=', $f['hasta']);
+
+        if (!empty($f['q'])) {
+            $term = mb_strtolower($f['q']);
+            $q->whereRaw('LOWER(e.folio) LIKE ?', ["%{$term}%"]);
+        }
+
+        return (float) $q->selectRaw("COALESCE(SUM(e.total),0) as total")->value('total');
+    }
+
+    private function salidasTotal(array $f): float
+    {
+        $q = DB::table('salidas as s');
+
+        if (!empty($f['almacen_id'])) $q->where('s.almacen_id', (int) $f['almacen_id']);
+        if (!empty($f['tipo']))      $q->where('s.tipo', $f['tipo']);
+
+        $q->whereDate('s.fecha', '>=', $f['desde'])
+          ->whereDate('s.fecha', '<=', $f['hasta']);
+
+        if (!empty($f['q'])) {
+            $term = mb_strtolower($f['q']);
+            $q->whereRaw('LOWER(s.folio) LIKE ?', ["%{$term}%"]);
+        }
+
+        return (float) $q->selectRaw("COALESCE(SUM(s.total),0) as total")->value('total');
+    }
+
+    /* =========================
+       LABELS
+       ========================= */
+
+    private function almacenLabel($almacenId): string
+    {
+        if (empty($almacenId)) return 'Todos';
+        return Almacen::query()->whereKey((int) $almacenId)->value('nombre') ?? '—';
+    }
+
+    private function proveedorLabel($proveedorId): string
+    {
+        if (empty($proveedorId)) return 'Todos';
+        return DB::table('proveedores')->where('id', (int) $proveedorId)->value('nombre') ?? '—';
+    }
+
+    /* =========================
+       HELPERS KÁRDEX
+       ========================= */
+
     private function kardexQuery(array $f)
     {
-        // ENTRADAS
         $entradas = DB::table('entradas as e')
             ->join('entrada_detalles as d', 'd.entrada_id', '=', 'e.id')
             ->join('insumos as i', 'i.id', '=', 'd.insumo_id')
@@ -218,7 +446,6 @@ class ReporteController extends Controller
                 e.created_by as user_id
             ");
 
-        // SALIDAS (NEGATIVO)
         $salidas = DB::table('salidas as s')
             ->join('salida_detalles as d', 'd.salida_id', '=', 's.id')
             ->join('insumos as i', 'i.id', '=', 'd.insumo_id')
@@ -239,18 +466,15 @@ class ReporteController extends Controller
             ");
 
         $union = $entradas->unionAll($salidas);
-
-        $base = DB::query()->fromSub($union, 'k');
+        $base  = DB::query()->fromSub($union, 'k');
 
         if (!empty($f['almacen_id'])) $base->where('almacen_id', (int) $f['almacen_id']);
         if (!empty($f['insumo_id']))  $base->where('insumo_id', (int) $f['insumo_id']);
         if (!empty($f['tipo']))       $base->where('tipo', $f['tipo']);
 
-        // fechas
         $base->whereDate('fecha', '>=', $f['desde'])
              ->whereDate('fecha', '<=', $f['hasta']);
 
-        // búsqueda
         if (!empty($f['q'])) {
             $term = mb_strtolower($f['q']);
             $base->where(function ($w) use ($term) {
@@ -266,65 +490,52 @@ class ReporteController extends Controller
 
     private function kardexTotals(array $f): array
     {
-        $row = $this->kardexQuery($f)
-            ->selectRaw("
-                COALESCE(SUM(CASE WHEN tipo='ENT' THEN cantidad ELSE 0 END), 0) as entradas_qty,
-                COALESCE(SUM(CASE WHEN tipo='SAL' THEN ABS(cantidad) ELSE 0 END), 0) as salidas_qty,
-                COALESCE(SUM(CASE WHEN tipo='ENT' THEN subtotal ELSE 0 END), 0) as entradas_monto,
-                COALESCE(SUM(CASE WHEN tipo='SAL' THEN ABS(subtotal) ELSE 0 END), 0) as salidas_monto,
-                COALESCE(SUM(cantidad), 0) as saldo_qty,
-                COALESCE(SUM(subtotal), 0) as saldo_monto
-            ")
-            ->first();
+        $row = $this->kardexQuery($f)->selectRaw("
+            COALESCE(SUM(CASE WHEN tipo='ENT' THEN cantidad ELSE 0 END), 0) as entradas_qty,
+            COALESCE(SUM(CASE WHEN tipo='SAL' THEN ABS(cantidad) ELSE 0 END), 0) as salidas_qty,
+            COALESCE(SUM(CASE WHEN tipo='ENT' THEN subtotal ELSE 0 END), 0) as entradas_monto,
+            COALESCE(SUM(CASE WHEN tipo='SAL' THEN ABS(subtotal) ELSE 0 END), 0) as salidas_monto,
+            COALESCE(SUM(cantidad), 0) as saldo_qty,
+            COALESCE(SUM(subtotal), 0) as saldo_monto
+        ")->first();
 
         return [
-            'entradas_qty'   => (float) $row->entradas_qty,
-            'salidas_qty'    => (float) $row->salidas_qty,
-            'entradas_monto' => (float) $row->entradas_monto,
-            'salidas_monto'  => (float) $row->salidas_monto,
-            'saldo_qty'      => (float) $row->saldo_qty,
-            'saldo_monto'    => (float) $row->saldo_monto,
+            'entradas_qty'   => (float) ($row->entradas_qty ?? 0),
+            'salidas_qty'    => (float) ($row->salidas_qty ?? 0),
+            'entradas_monto' => (float) ($row->entradas_monto ?? 0),
+            'salidas_monto'  => (float) ($row->salidas_monto ?? 0),
+            'saldo_qty'      => (float) ($row->saldo_qty ?? 0),
+            'saldo_monto'    => (float) ($row->saldo_monto ?? 0),
         ];
     }
 
     private function kardexSaldoInicial(array $f): float
     {
-        // mismo filtro, pero "hasta" = día anterior a "desde"
         $hasta = date('Y-m-d', strtotime($f['desde'] . ' -1 day'));
         if (!$hasta || $hasta < '1900-01-01') return 0.0;
 
         $f2 = $f;
         $f2['hasta'] = $hasta;
 
-        $row = $this->kardexQuery($f2)
+        return (float) $this->kardexQuery($f2)
             ->selectRaw("COALESCE(SUM(cantidad), 0) as saldo_inicial")
-            ->first();
-
-        return (float) $row->saldo_inicial;
+            ->value('saldo_inicial');
     }
 
     private function kardexOrder($q)
     {
-        // Orden “contable”: fecha asc, ENT antes SAL, y luego id
         return $q->orderBy('fecha')->orderBy('tipo')->orderBy('id');
     }
 
-    /**
-     * Suma de cantidades antes de la página actual (para que el saldo paginado sea correcto).
-     * IMPORTANTE: usa el mismo orden contable (asc).
-     */
     private function kardexSumBefore(array $filters, int $offset): float
     {
         if ($offset <= 0) return 0.0;
 
-        $sub = $this->kardexOrder($this->kardexQuery($filters))
-            ->limit($offset);
+        $sub = $this->kardexOrder($this->kardexQuery($filters))->limit($offset);
 
-        $sum = DB::query()
+        return (float) DB::query()
             ->fromSub($sub, 't')
             ->selectRaw("COALESCE(SUM(cantidad),0) as s")
             ->value('s');
-
-        return (float) $sum;
     }
 }

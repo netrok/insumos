@@ -149,5 +149,40 @@
       </x-card>
     </a>
 
+    {{-- ✅ Usuarios --}}
+    <a href="{{ route('admin.usuarios.index') }}" class="group block">
+      <x-card
+        class="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm transition
+               hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-xs font-semibold tracking-wider uppercase text-slate-500">
+              Control
+            </div>
+            <div class="mt-1 text-lg font-extrabold text-slate-900">
+              Usuarios
+            </div>
+          </div>
+
+          <div
+            class="shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 transition
+                   group-hover:bg-slate-900 group-hover:border-slate-900"
+          >
+            <x-icon name="users" class="h-5 w-5 text-slate-700 transition group-hover:text-white" />
+          </div>
+        </div>
+
+        <div class="mt-3 text-sm text-slate-600">
+          Altas, bajas, roles y permisos del sistema.
+        </div>
+
+        <div class="mt-5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <span class="transition group-hover:text-slate-900">Abrir</span>
+          <span class="translate-x-0 transition group-hover:translate-x-1">→</span>
+        </div>
+      </x-card>
+    </a>
+
   </div>
 @endsection

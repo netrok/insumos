@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\EmpresaController;
 use App\Http\Controllers\Admin\FolioController;
 use App\Http\Controllers\Admin\ParametroController;
 use App\Http\Controllers\Admin\AuditoriaMovController;
+use App\Http\Controllers\Admin\UserController;
 
 // Raíz: manda al dashboard
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -59,9 +60,17 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('reportes')->name('reportes.')->group(function () {
 
         // Kardex
-        Route::get('/kardex', [ReporteController::class, 'kardex'])->name('kardex');
+        Route::get('/kardex',      [ReporteController::class, 'kardex'])->name('kardex');
         Route::get('/kardex.xlsx', [ReporteController::class, 'kardexXlsx'])->name('kardex.xlsx');
-        Route::get('/kardex.pdf', [ReporteController::class, 'kardexPdf'])->name('kardex.pdf');
+        Route::get('/kardex.pdf',  [ReporteController::class, 'kardexPdf'])->name('kardex.pdf');
+
+        // Entradas
+        Route::get('/entradas.pdf',  [ReporteController::class, 'entradasPdf'])->name('entradas.pdf');
+        Route::get('/entradas.xlsx', [ReporteController::class, 'entradasXlsx'])->name('entradas.xlsx');
+
+        // Salidas
+        Route::get('/salidas.pdf',  [ReporteController::class, 'salidasPdf'])->name('salidas.pdf');
+        Route::get('/salidas.xlsx', [ReporteController::class, 'salidasXlsx'])->name('salidas.xlsx');
 
         // Proveedores (lista)
         Route::get('/proveedores.xlsx', [ReporteProveedorController::class, 'listaXlsx'])->name('proveedores.xlsx');
@@ -73,8 +82,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     /**
-     * ADMIN — protegido
-     * Nota: tu rol real es "ADMIN" (mayúsculas), por eso aquí va así.
+     * ADMIN — protegido (rol "ADMIN")
      */
     Route::prefix('admin')
         ->name('admin.')
@@ -97,6 +105,11 @@ Route::middleware(['auth'])->group(function () {
 
             // Auditoría
             Route::get('/auditoria/movimientos', [AuditoriaMovController::class, 'index'])->name('auditoria.movimientos');
+
+            // Usuarios (CRUD)
+            Route::resource('usuarios', UserController::class)
+                ->parameters(['usuarios' => 'user'])
+                ->except(['show']);
         });
 });
 
