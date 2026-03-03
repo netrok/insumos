@@ -32,15 +32,48 @@ class Envio extends Model
     ];
 
     // Relaciones
-    public function origen() { return $this->belongsTo(Almacen::class, 'almacen_origen_id'); }
-    public function destino() { return $this->belongsTo(Almacen::class, 'almacen_destino_id'); }
+    public function origen()
+    {
+        return $this->belongsTo(Almacen::class, 'almacen_origen_id');
+    }
 
-    public function solicitadoPor() { return $this->belongsTo(User::class, 'solicitado_por_user_id'); }
-    public function aprobadoPor() { return $this->belongsTo(User::class, 'aprobado_por_user_id'); }
-    public function surtidoPor() { return $this->belongsTo(User::class, 'surtido_por_user_id'); }
+    public function destino()
+    {
+        return $this->belongsTo(Almacen::class, 'almacen_destino_id');
+    }
 
-    public function chofer() { return $this->belongsTo(User::class, 'chofer_user_id'); }
+    public function solicitadoPor()
+    {
+        return $this->belongsTo(User::class, 'solicitado_por_user_id');
+    }
 
-    public function detalles() { return $this->hasMany(EnvioDetalle::class); }
-    public function evidencias() { return $this->hasMany(EnvioEvidencia::class); }
+    public function aprobadoPor()
+    {
+        return $this->belongsTo(User::class, 'aprobado_por_user_id');
+    }
+
+    public function surtidoPor()
+    {
+        return $this->belongsTo(User::class, 'surtido_por_user_id');
+    }
+
+    public function chofer()
+    {
+        return $this->belongsTo(User::class, 'chofer_user_id');
+    }
+
+    public function detalles()
+    {
+        return $this->hasMany(EnvioDetalle::class);
+    }
+
+    public function evidencias()
+    {
+        return $this->hasMany(EnvioEvidencia::class);
+    }
+
+    public function tokens()
+    {
+        return $this->hasMany(EnvioToken::class);
+    }
 }

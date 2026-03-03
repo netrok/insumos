@@ -13,6 +13,7 @@ use App\Http\Controllers\SalidaController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ReporteProveedorController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnvioController;
 
 // Admin
 use App\Http\Controllers\Admin\AdminController;
@@ -53,6 +54,19 @@ Route::middleware(['auth'])->group(function () {
 
     // Salidas
     Route::resource('salidas', SalidaController::class)->parameters(['salidas' => 'salida']);
+
+    /**
+     * ENVÍOS — workflow (Paso 2)
+     * POST /envios/{envio}/...
+     */
+    Route::prefix('envios')->name('envios.')->group(function () {
+        Route::post('{envio}/aprobar',   [EnvioController::class, 'aprobar'])->name('aprobar');
+        Route::post('{envio}/surtir',    [EnvioController::class, 'surtir'])->name('surtir');
+        Route::post('{envio}/salida',    [EnvioController::class, 'salida'])->name('salida');
+        Route::post('{envio}/recibir',   [EnvioController::class, 'recibir'])->name('recibir');
+        Route::post('{envio}/incidencia',[EnvioController::class, 'incidencia'])->name('incidencia');
+        Route::post('{envio}/cerrar',    [EnvioController::class, 'cerrar'])->name('cerrar');
+    });
 
     /**
      * REPORTES (generales) — auth
@@ -116,11 +130,8 @@ Route::middleware(['auth'])->group(function () {
 
             // ADMIN REPORTES (solo admin)
             Route::prefix('reportes')->name('reportes.')->group(function () {
-                Route::get('/auditoria.xlsx', [ReporteController::class, 'auditoriaXlsx'])
-                    ->name('auditoria.xlsx');
-
-                Route::get('/auditoria.pdf', [ReporteController::class, 'auditoriaPdf'])
-                    ->name('auditoria.pdf');
+                Route::get('/auditoria.xlsx', [ReporteController::class, 'auditoriaXlsx'])->name('auditoria.xlsx');
+                Route::get('/auditoria.pdf',  [ReporteController::class, 'auditoriaPdf'])->name('auditoria.pdf');
             });
 
             // Usuarios (CRUD)
@@ -131,4 +142,3 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__ . '/auth.php';
-
